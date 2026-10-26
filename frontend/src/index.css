@@ -1,0 +1,84 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+@layer base {
+  :root {
+    --bg-main: #0a0e18;
+    --bg-card: #131b2c;
+    --bg-card-hover: #192339;
+    --border-subtle: #1e293b;
+    --accent-ok: #22c55e;
+    --accent-warn: #f59e0b;
+    --accent-bad: #ef4444;
+    --accent-info: #38bdf8;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #0a0e18;
+    color: #e2e8f0;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom Automotive Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0e18;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Pulsing alert animation */
+@keyframes alertPulse {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+    border-color: rgba(239, 68, 68, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(239, 68, 68, 0.85);
+    border-color: #ef4444;
+  }
+}
+
+.animate-alert-pulse {
+  animation: alertPulse 1.2s infinite ease-in-out;
+}
+
+/* Custom Leaflet Dark Mode styling */
+.leaflet-container {
+  background: #0a0e18 !important;
+  width: 100%;
+  height: 100%;
+  border-radius: 1rem;
+}
+
+.leaflet-tile-pane {
+  filter: brightness(0.7) invert(1) contrast(3) hue-rotate(200deg) saturate(0.35);
+}
+
+.leaflet-bar a {
+  background-color: #131b2c !important;
+  color: #e2e8f0 !important;
+  border-bottom: 1px solid #1e293b !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: #1e293b !important;
+}

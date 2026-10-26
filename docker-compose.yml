@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - JWT_SECRET=driveguard_production_jwt_secret_9988
+      - DEVICE_API_KEY=dg_device_key_secret_12345
+      - ADMIN_EMAIL=admin@driveguard.local
+      - ADMIN_PASSWORD=AdminSecurePass123!
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:80,http://127.0.0.1:5173
+      - RETENTION_DAYS=30
+      - DATABASE_PATH=/app/data/driveguard.db
+    volumes:
+      - driveguard_db_data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  driveguard_db_data:
