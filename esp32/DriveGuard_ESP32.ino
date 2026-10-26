@@ -1,17 +1,16 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <ArduinoJson.h>
 
 // ============================================================================
-// DRIVEGUARD IOT — ESP32 TELEMETRY CLIENT
-// Network: Mobile Hotspot 'Deena' -> PC Backend at 172.30.20.12:3000
+// DRIVEGUARD IOT — ESP32 TELEMETRY FIRMWARE
+// Folder Name : DriveGuard_ESP32 (Matches sketch name for Arduino IDE)
+// Target PC   : http://172.30.20.12:3000/api/telemetry
+// Hotspot     : Deena
 // ============================================================================
 
 // ---------- Wi-Fi & Backend Configuration ----------
-// Make sure your phone's mobile hotspot name is "Deena"
 const char* WIFI_SSID     = "Deena";
-// Change to your phone hotspot password if different:
-const char* WIFI_PASSWORD = "12347891";
+const char* WIFI_PASSWORD = "12347891"; // Change to your hotspot password if different
 
 // Target Node.js API endpoint on PC
 const char* SERVER_URL    = "http://172.30.20.12:3000/api/telemetry";
@@ -52,14 +51,16 @@ bool readTriggered(int pin, bool activeLow) {
 }
 
 void printHelp() {
-  Serial.println("\n--- DriveGuard Serial Test Commands ---");
-  Serial.println(" [f] -> Toggle Flame Alert");
-  Serial.println(" [s] -> Toggle Smoke Alert");
-  Serial.println(" [a] -> Toggle MQ-3 Alcohol Alert");
-  Serial.println(" [c] -> Toggle Accident / Impact Alert");
-  Serial.println(" [n] -> Clear All Alerts (Reset to Normal)");
-  Serial.println(" [h] -> Print this Help Menu");
-  Serial.println("----------------------------------------\n");
+  Serial.println("\n--------------------------------------------------");
+  Serial.println("       DriveGuard Serial Test Commands Menu       ");
+  Serial.println("--------------------------------------------------");
+  Serial.println("  [f] -> Toggle Simulated Flame Alert");
+  Serial.println("  [s] -> Toggle Simulated Smoke Alert");
+  Serial.println("  [a] -> Toggle Simulated MQ-3 Alcohol Alert");
+  Serial.println("  [c] -> Toggle Simulated Accident / Impact Alert");
+  Serial.println("  [n] -> Clear All Simulated Alerts (Normal)");
+  Serial.println("  [h] -> Print this Help Menu");
+  Serial.println("--------------------------------------------------\n");
 }
 
 void handleSerial() {
@@ -114,7 +115,7 @@ void connectWiFi() {
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("==================================================");
-    Serial.println(" [SUCCESS] Wi-Fi Connected!");
+    Serial.println(" [SUCCESS] Wi-Fi Connected to Hotspot!");
     Serial.print(" ESP32 IP Address : ");
     Serial.println(WiFi.localIP());
     Serial.print(" Target Backend   : ");
@@ -122,9 +123,9 @@ void connectWiFi() {
     Serial.println("==================================================");
   } else {
     Serial.println(" [FAILED] Could not connect to Wi-Fi hotspot.");
-    Serial.println(" -> Verify hotspot SSID is 'Deena'");
+    Serial.println(" -> Verify hotspot SSID is exactly 'Deena'");
     Serial.println(" -> Verify hotspot password");
-    Serial.println(" -> Ensure hotspot band is 2.4 GHz (ESP32 does not support 5 GHz)");
+    Serial.println(" -> Ensure hotspot band is 2.4 GHz (ESP32 cannot see 5 GHz)");
   }
 }
 
@@ -147,23 +148,21 @@ void postTelemetry() {
   bool motion = readTriggered(MOTION_PIN, ACTIVE_LOW_MOTION);
   bool alcoholAlert = (mq3Raw >= MQ3_ALERT_THRESHOLD);
 
-  // Build JSON telemetry document
-  StaticJsonDocument<512> doc;
-  doc["deviceId"]    = DEVICE_ID;
-  doc["mq3Raw"]      = mq3Raw;
-  doc["mq3Status"]   = alcoholAlert ? "ALERT" : "NORMAL";
-  doc["heartRaw"]    = 0;
-  doc["heartStatus"] = "NOT_CONNECTED";
-  doc["flame"]       = flame;
-  doc["smoke"]       = smoke;
-  doc["motion"]      = motion;
-  doc["accident"]    = accident;
-  doc["speedKmph"]   = 0;
-  doc["btConnected"] = false;
-  doc["uptimeS"]     = (millis() - bootMs) / 1000;
-
-  String payload;
-  serializeJson(doc, payload);
+  // Native lightweight JSON serialization (No external ArduinoJson library required!)
+  String payload = "{";
+  payload += "\"deviceId\":\"" + String(DEVICE_ID) + "\",";
+  payload += "\"mq3Raw\":" + String(mq3Raw) + ",";
+  payload += "\"mq3Status\":\"" + String(alcoholAlert ? "ALERT" : "NORMAL") + "\",";
+  payload += "\"heartRaw\":0,";
+  payload += "\"heartStatus\":\"NOT_CONNECTED\",";
+  payload += "\"flame\":" + String(flame ? "true" : "false") + ",";
+  payload += "\"smoke\":" + String(smoke ? "true" : "false") + ",";
+  payload += "\"motion\":" + String(motion ? "true" : "false") + ",";
+  payload += "\"accident\":" + String(accident ? "true" : "false") + ",";
+  payload += "\"speedKmph\":0,";
+  payload += "\"btConnected\":false,";
+  payload += "\"uptimeS\":" + String((millis() - bootMs) / 1000);
+  payload += "}";
 
   WiFiClient client;
   HTTPClient http;
@@ -198,6 +197,10 @@ void postTelemetry() {
 
   http.end();
 }
+
+// ============================================================================
+// MANDATORY ARDUINO ENTRY FUNCTIONS: setup() and loop()
+// ============================================================================
 
 void setup() {
   Serial.begin(115200);
