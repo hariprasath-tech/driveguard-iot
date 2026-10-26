@@ -40,47 +40,35 @@ export const DashboardPage: React.FC = () => {
         {/* Six Core Automotive Sensors Grid */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400">
-              Sensor Node Matrix (ESP32 #2 via BT)
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+              Active Vehicle Safety Shield
             </h2>
-            <span className="text-[11px] font-mono text-slate-500">Sub-second Ingestion</span>
+            <span className="text-xs text-emerald-400 font-medium">Continuous real-time protection</span>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             <SensorTile
               id="flame"
-              title="Engine Flame"
-              subtitle="DO GPIO26"
               status={data?.flame || 'WAITING'}
             />
             <SensorTile
               id="smoke"
-              title="Cabin Smoke / MQ-2"
-              subtitle="AO GPIO33"
               status={data?.smoke || 'WAITING'}
             />
             <SensorTile
               id="accident"
-              title="Collision Impact"
-              subtitle="MPU 0x70 Accelerometer"
               status={data?.accident || 'WAITING'}
             />
             <SensorTile
               id="motion"
-              title="PIR Cabin Motion"
-              subtitle="OUT GPIO27"
               status={data?.motion || 'WAITING'}
             />
             <SensorTile
               id="frequency"
-              title="Ultrasonic TCT50"
-              subtitle="GPIO25 Control"
               status={data?.frequency || 'WAITING'}
             />
             <SensorTile
               id="gps"
-              title="NEO-6M GPS"
-              subtitle="UART GPIO16/17"
               status={data?.gps || 'WAITING'}
             />
           </div>

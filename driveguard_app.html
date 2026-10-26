@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>DriveGuard - Vehicle Safety Cockpit</title>
+  <meta name="description" content="Mission-critical vehicle safety monitoring. Humanized telemetry, emergency alerts, and live tracking." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root {
+      --bg: #0a0e18;
+      --card: #131b2c;
+      --card-border: #1e293b;
+      --accent-ok: #22c55e;
+      --accent-warn: #f59e0b;
+      --accent-bad: #ef4444;
+      --accent-info: #38bdf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: #e2e8f0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+    header {
+      background: rgba(10, 14, 24, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 14px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+    }
+    .brand h1 { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+    .brand p { font-size: 11px; color: #94a3b8; font-family: 'JetBrains Mono', monospace; }
+    .container {
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 20px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex: 1;
+    }
+    .sim-bar {
+      background: #101726;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 12px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .sim-title { font-size: 12px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; font-family: 'JetBrains Mono'; }
+    .sim-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sim-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .sim-btn:hover { background: #334155; }
+    .sim-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
+    .sim-btn.danger { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
+    .sim-btn.danger:hover { background: #ef4444; color: #fff; }
+
+    /* Humanized Status Banner */
+    .status-banner {
+      border-radius: 20px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      transition: all 0.3s;
+      border: 1px solid;
+    }
+    .status-banner.safe {
+      background: linear-gradient(90deg, rgba(34, 197, 94, 0.12), rgba(19, 27, 44, 0.9));
+      border-color: rgba(34, 197, 94, 0.35);
+    }
+    .status-banner.alert {
+      background: linear-gradient(90deg, rgba(239, 68, 68, 0.25), rgba(19, 27, 44, 0.95));
+      border-color: #ef4444;
+      animation: alertGlow 1.2s infinite ease-in-out;
+    }
+    @keyframes alertGlow {
+      0%, 100% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.3); }
+      50% { box-shadow: 0 0 45px rgba(239, 68, 68, 0.7); }
+    }
+    .status-badge {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 999px;
+      letter-spacing: 1px;
+      font-family: 'JetBrains Mono';
+    }
+    .status-badge.safe { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .status-badge.alert { background: #ef4444; color: #fff; }
+    .status-heading { font-size: 18px; font-weight: 800; color: #fff; margin-top: 4px; }
+    .status-desc { font-size: 13px; color: #cbd5e1; margin-top: 4px; line-height: 1.4; }
+
+    /* Chips */
+    .chips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .chip {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .chip-label { font-size: 10px; color: #94a3b8; font-weight: 700; text-transform: uppercase; font-family: 'JetBrains Mono'; }
+    .chip-val { font-size: 13px; font-weight: 700; color: #f1f5f9; margin-top: 2px; }
+
+    /* Sensor Grid */
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .sensor-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 120px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .sensor-card:hover { transform: translateY(-2px); border-color: #334155; }
+    .sensor-card.danger { border-color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+    .sensor-header { display: flex; align-items: center; justify-content: space-between; }
+    .sensor-title { font-size: 13px; font-weight: 700; color: #f8fafc; margin-top: 14px; }
+    .sensor-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+    .pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid;
+    }
+    .pill.ok { background: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.3); }
+    .pill.bad { background: rgba(239, 68, 68, 0.25); color: #fca5a5; border-color: #ef4444; }
+    .pill.blue { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border-color: rgba(56, 189, 248, 0.3); }
+
+    /* Gauges & Map */
+    .dashboard-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 340px;
+    }
+    .panel-head { display: flex; justify-content: space-between; align-items: flex-start; }
+    .panel-title { font-size: 15px; font-weight: 800; color: #f8fafc; }
+    .panel-subtitle { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+    .big-value { font-size: 38px; font-weight: 900; font-family: 'JetBrains Mono', monospace; color: #fff; margin: 16px 0 6px; }
+    .meter-bar { height: 10px; background: #0f172a; border-radius: 999px; overflow: hidden; margin: 10px 0; border: 1px solid #1e293b; }
+    .meter-fill { height: 100%; border-radius: 999px; transition: width 0.3s; }
+    .meter-labels { display: flex; justify-content: space-between; font-size: 10px; color: #64748b; font-family: 'JetBrains Mono'; }
+    .sparkline-canvas { width: 100%; height: 75px; background: rgba(15, 23, 42, 0.5); border-radius: 12px; margin-top: 14px; }
+    #map { height: 280px; width: 100%; border-radius: 14px; border: 1px solid #1e293b; margin-top: 12px; }
+
+    /* Emergency Siren Modal */
+    .emergency-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .emergency-box {
+      max-width: 540px;
+      width: 100%;
+      background: linear-gradient(180deg, #450a0a, #131b2c);
+      border: 2px solid #ef4444;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 0 60px rgba(239, 68, 68, 0.6);
+      text-align: left;
+    }
+    .siren-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(90deg, #dc2626, #b91c1c);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 20px;
+      transition: transform 0.1s;
+    }
+    .siren-btn:active { transform: scale(0.98); }
+    .mute-btn {
+      background: #1e293b;
+      color: #cbd5e1;
+      border: 1px solid #334155;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Cockpit Header -->
+  <header>
+    <a href="#" class="brand">
+      <div class="brand-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <h1>DriveGuard</h1>
+        <p>Real-Time Vehicle Safety Cockpit</p>
+      </div>
+    </a>
+
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button id="audioToggleBtn" class="mute-btn" onclick="toggleAudioMute()">🔊 Siren Sound Enabled</button>
+      <span class="pill ok" style="font-size: 11px;">● LIVE CLOUD FEED</span>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- Interactive Humanized Simulator Bar -->
+    <div class="sim-bar">
+      <div class="sim-title">⚡ Test Scenarios (Instant Simulator)</div>
+      <div class="sim-btns">
+        <button class="sim-btn active" onclick="setScenario('normal')">✓ All Normal (Safe)</button>
+        <button class="sim-btn danger" onclick="setScenario('flame')">🔥 Test Engine Fire</button>
+        <button class="sim-btn danger" onclick="setScenario('smoke')">💨 Test Cabin Smoke</button>
+        <button class="sim-btn danger" onclick="setScenario('alcohol')">🍷 Test Driver Alcohol</button>
+        <button class="sim-btn danger" onclick="setScenario('accident')">💥 Test Collision Impact</button>
+        <button class="sim-btn" onclick="setScenario('parked')">🅿️ Car Parked / Off</button>
+      </div>
+    </div>
+
+    <!-- Humanized Safety Banner -->
+    <div id="statusBanner" class="status-banner safe">
+      <div id="statusIconHolder" style="font-size: 32px;">🛡️</div>
+      <div style="flex: 1;">
+        <span id="statusBadge" class="status-badge safe">All Clear</span>
+        <div id="statusHeading" class="status-heading">All systems safe & healthy</div>
+        <div id="statusDesc" class="status-desc">Every safety sensor is watching over your vehicle. No hazards or alarms detected right now.</div>
+      </div>
+    </div>
+
+    <!-- Telemetry Status Chips -->
+    <div class="chips-grid">
+      <div class="chip">
+        <div style="font-size: 20px;">☁️</div>
+        <div>
+          <div class="chip-label">Cloud Sync</div>
+          <div class="chip-val" id="chipSync">Connected Live (1s)</div>
+        </div>
+      </div>
+      <div class="chip">
+        <div style="font-size: 20px;">📡</div>
+        <div>
+          <div class="chip-label">In-Car Bluetooth</div>
+          <div class="chip-val" id="chipBt">Node 2 Paired (14:08)</div>
+        </div>
+      </div>
+      <div class="chip">
+        <div style="font-size: 20px;">⏱️</div>
+        <div>
+          <div class="chip-label">Car Status</div>
+          <div class="chip-val" id="chipAge">Live right now</div>
+        </div>
+      </div>
+      <div class="chip">
+        <div style="font-size: 20px;">🚗</div>
+        <div>
+          <div class="chip-label">Driving Speed</div>
+          <div class="chip-val" id="chipSpeed">42.5 km/h</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 Active Sensor Matrix -->
+    <div class="sensor-grid">
+      <div class="sensor-card" id="cardFlame">
+        <div class="sensor-header">
+          <span style="font-size: 22px;">🔥</span>
+          <span class="pill ok" id="pillFlame">Cool • Clear</span>
+        </div>
+        <div>
+          <div class="sensor-title">Engine Fire Guard</div>
+          <div class="sensor-sub">Under-hood temperature</div>
+        </div>
+      </div>
+
+      <div class="sensor-card" id="cardSmoke">
+        <div class="sensor-header">
+          <span style="font-size: 22px;">💨</span>
+          <span class="pill ok" id="pillSmoke">Clean Air</span>
+        </div>
+        <div>
+          <div class="sensor-title">Cabin Air & Smoke</div>
+          <div class="sensor-sub">Exhaust & gas detector</div>
+        </div>
+      </div>
+
+      <div class="sensor-card" id="cardAccident">
+        <div class="sensor-header">
+          <span style="font-size: 22px;">💥</span>
+          <span class="pill ok" id="pillAccident">Smooth Ride</span>
+        </div>
+        <div>
+          <div class="sensor-title">Collision Guard</div>
+          <div class="sensor-sub">Impact accelerometer</div>
+        </div>
+      </div>
+
+      <div class="sensor-card" id="cardMotion">
+        <div class="sensor-header">
+          <span style="font-size: 22px;">👤</span>
+          <span class="pill blue" id="pillMotion">Occupant Inside</span>
+        </div>
+        <div>
+          <div class="sensor-title">Cabin Activity</div>
+          <div class="sensor-sub">PIR passenger sensing</div>
+        </div>
+      </div>
+
+      <div class="sensor-card" id="cardRadar">
+        <div class="sensor-header">
+          <span style="font-size: 22px;">📡</span>
+          <span class="pill blue" id="pillRadar">Active Waves</span>
+        </div>
+        <div>
+          <div class="sensor-title">Proximity Radar</div>
+          <div class="sensor-sub">Ultrasonic transducer</div>
+        </div>
+      </div>
+
+      <div class="sensor-card" id="cardGps">
+        <div class="sensor-header">
+          <span style="font-size: 22px;">📍</span>
+          <span class="pill ok" id="pillGps">Locked</span>
+        </div>
+        <div>
+          <div class="sensor-title">Satellite Position</div>
+          <div class="sensor-sub">NEO-6M GPS Module</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analog Meters & Live GPS Map -->
+    <div class="dashboard-row">
+      <!-- Alcohol Card -->
+      <div class="panel">
+        <div>
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Driver Sobriety & Alertness</div>
+              <div class="panel-subtitle">MQ-3 Breath alcohol vapor check</div>
+            </div>
+            <span class="pill ok" id="alcPill">Sober & Ready</span>
+          </div>
+
+          <div class="big-value" id="alcVal">1,215</div>
+          <div style="font-size: 11px; color: #94a3b8;">Safe threshold is under 2,500</div>
+
+          <div class="meter-bar">
+            <div class="meter-fill" id="alcFill" style="width: 30%; background: linear-gradient(90deg, #38bdf8, #22c55e);"></div>
+          </div>
+          <div class="meter-labels">
+            <span>0</span>
+            <span style="color: #f59e0b; font-weight: bold;">Safe limit: 2,500</span>
+            <span>4,095</span>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-family: 'JetBrains Mono'; margin-top: 10px;">90s Rolling Alcohol Curve</div>
+          <canvas id="alcSparkline" class="sparkline-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Pulse Card -->
+      <div class="panel">
+        <div>
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Driver Heart & Wellness</div>
+              <div class="panel-subtitle">Analog pulse signal monitor</div>
+            </div>
+            <span class="pill ok" id="pulsePill">Calm & Steady</span>
+          </div>
+
+          <div class="big-value" id="pulseVal">2,048</div>
+          <div style="font-size: 11px; color: #94a3b8;">Normal steady range: 1,000–3,000</div>
+
+          <div class="meter-bar">
+            <div class="meter-fill" id="pulseFill" style="width: 50%; background: linear-gradient(90deg, #38bdf8, #22c55e);"></div>
+          </div>
+          <div class="meter-labels">
+            <span>0</span>
+            <span style="color: #22c55e; font-weight: bold;">Comfort: 1,000–3,000</span>
+            <span>4,095</span>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-family: 'JetBrains Mono'; margin-top: 10px;">90s Rolling Pulse Waveform</div>
+          <canvas id="pulseSparkline" class="sparkline-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Live GPS Map -->
+      <div class="panel">
+        <div>
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Live Vehicle Location</div>
+              <div class="panel-subtitle">Satellite breadcrumb trail</div>
+            </div>
+            <span class="pill ok">Tracking</span>
+          </div>
+          <div id="map"></div>
+        </div>
+        <div style="font-size: 11px; color: #94a3b8; font-family: 'JetBrains Mono'; margin-top: 8px;">
+          Coordinates: <strong id="coordsText">12.9716° N, 77.5946° E</strong>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Critical Emergency Alert Modal -->
+  <div id="emergencyModal" class="emergency-modal">
+    <div class="emergency-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <span class="status-badge alert">SAFETY HAZARD DETECTED</span>
+        <button class="mute-btn" onclick="toggleAudioMute()">Mute Siren</button>
+      </div>
+
+      <h2 id="modalTitle" style="color: #fff; font-size: 22px; font-weight: 800; margin-bottom: 8px;">
+        Engine Fire Detected!
+      </h2>
+      <p id="modalAction" style="color: #fca5a5; font-size: 14px; line-height: 1.5; margin-bottom: 18px;">
+        Stay calm. Pull over to a safe area immediately, switch off the ignition, and exit the car.
+      </p>
+
+      <div style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: 12px; font-size: 12px; color: #cbd5e1; font-family: 'JetBrains Mono';">
+        Location: <span id="modalCoords">12.9716, 77.5946</span> • Siren active to notify passengers
+      </div>
+
+      <button class="siren-btn" onclick="silenceEmergency()">
+        ✓ I've Checked the Vehicle — Silence Alarm
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let audioMuted = false;
+    let audioCtx = null;
+    let sirenOsc = null;
+    let sirenLfo = null;
+    let currentScenario = 'normal';
+
+    let state = {
+      flame: 'NOT DETECTED',
+      smoke: 'NOT DETECTED',
+      alcoholRaw: 1200,
+      heartRaw: 2048,
+      motion: 'DETECTED',
+      accident: 'NOT DETECTED',
+      speed: 42.5,
+      lat: 12.971598,
+      lng: 77.594562
+    };
+
+    let alcHistory = new Array(60).fill(1200);
+    let pulseHistory = new Array(60).fill(2048);
+
+    // Map Setup
+    let map = L.map('map', { attributionControl: false }).setView([state.lat, state.lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    let vehicleMarker = L.circleMarker([state.lat, state.lng], {
+      color: '#38bdf8',
+      fillColor: '#0284c7',
+      fillOpacity: 0.9,
+      radius: 9,
+      weight: 3
+    }).addTo(map);
+
+    let trailCoords = [[state.lat, state.lng]];
+    let polyline = L.polyline(trailCoords, { color: '#38bdf8', weight: 3, dashArray: '5, 5' }).addTo(map);
+
+    // Web Audio Siren Synthesizer
+    function startSiren() {
+      if (audioMuted) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (sirenOsc) return;
+
+        sirenOsc = audioCtx.createOscillator();
+        sirenLfo = audioCtx.createOscillator();
+        let lfoGain = audioCtx.createGain();
+        let masterGain = audioCtx.createGain();
+
+        sirenOsc.type = 'sawtooth';
+        sirenOsc.frequency.setValueAtTime(800, audioCtx.currentTime);
+
+        sirenLfo.type = 'sine';
+        sirenLfo.frequency.setValueAtTime(1.8, audioCtx.currentTime); // 1.8 Hz sweep
+
+        lfoGain.gain.setValueAtTime(350, audioCtx.currentTime);
+        masterGain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+
+        sirenLfo.connect(lfoGain);
+        lfoGain.connect(sirenOsc.frequency);
+        sirenOsc.connect(masterGain);
+        masterGain.connect(audioCtx.destination);
+
+        sirenOsc.start();
+        sirenLfo.start();
+      } catch (e) {
+        console.warn('Audio requires user click:', e);
+      }
+    }
+
+    function stopSiren() {
+      if (sirenOsc) {
+        try { sirenOsc.stop(); sirenLfo.stop(); } catch(e){}
+        sirenOsc = null;
+        sirenLfo = null;
+      }
+    }
+
+    function toggleAudioMute() {
+      audioMuted = !audioMuted;
+      document.getElementById('audioToggleBtn').innerText = audioMuted ? '🔇 Siren Muted' : '🔊 Siren Sound Enabled';
+      if (audioMuted) stopSiren();
+    }
+
+    // Scenarios
+    function setScenario(sc) {
+      currentScenario = sc;
+      document.querySelectorAll('.sim-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+
+      if (sc === 'normal') {
+        state.flame = 'NOT DETECTED';
+        state.smoke = 'NOT DETECTED';
+        state.accident = 'NOT DETECTED';
+        state.alcoholRaw = 1200;
+        state.speed = 44.0;
+        document.getElementById('emergencyModal').style.display = 'none';
+        stopSiren();
+      } else if (sc === 'flame') {
+        state.flame = 'DETECTED';
+        triggerEmergency('Engine Fire Detected!', 'Under-hood heat detected. Please pull over safely, switch off the car, and step outside.');
+      } else if (sc === 'smoke') {
+        state.smoke = 'DETECTED';
+        triggerEmergency('Cabin Smoke & Fumes Detected!', 'Smoke or exhaust vapor in the cabin. Roll down windows and inspect vehicle.');
+      } else if (sc === 'alcohol') {
+        state.alcoholRaw = 3300;
+        triggerEmergency('Driver Alcohol Impairment Warning!', 'Alcohol vapor detected inside the car. For everyone’s safety, do not operate this vehicle.');
+      } else if (sc === 'accident') {
+        state.accident = 'DETECTED';
+        triggerEmergency('Vehicle Impact / Collision Registered!', 'Impact shock recorded. Please check on passengers. Coordinates pinned for emergency response.');
+      } else if (sc === 'parked') {
+        state.speed = 0;
+        state.flame = 'NOT DETECTED';
+        state.smoke = 'NOT DETECTED';
+        state.accident = 'NOT DETECTED';
+        state.alcoholRaw = 800;
+        document.getElementById('emergencyModal').style.display = 'none';
+        stopSiren();
+      }
+      render();
+    }
+
+    function triggerEmergency(title, action) {
+      document.getElementById('modalTitle').innerText = title;
+      document.getElementById('modalAction').innerText = action;
+      document.getElementById('modalCoords').innerText = state.lat.toFixed(4) + ', ' + state.lng.toFixed(4);
+      document.getElementById('emergencyModal').style.display = 'flex';
+      startSiren();
+    }
+
+    function silenceEmergency() {
+      document.getElementById('emergencyModal').style.display = 'none';
+      stopSiren();
+    }
+
+    // Canvas Sparkline renderer
+    function drawSparkline(canvasId, history, color, min, max) {
+      let canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      let ctx = canvas.getContext('2d');
+      let w = canvas.width = canvas.offsetWidth;
+      let h = canvas.height = canvas.offsetHeight;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+
+      for (let i = 0; i < history.length; i++) {
+        let x = (i / (history.length - 1)) * w;
+        let valNorm = (history[i] - min) / (max - min);
+        let y = h - (valNorm * (h - 10) + 5);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    // Render UI Loop
+    function render() {
+      let hasHazard = state.flame === 'DETECTED' || state.smoke === 'DETECTED' || state.alcoholRaw > 2500 || state.accident === 'DETECTED';
+
+      // Status Banner
+      let banner = document.getElementById('statusBanner');
+      let badge = document.getElementById('statusBadge');
+      let heading = document.getElementById('statusHeading');
+      let desc = document.getElementById('statusDesc');
+      let icon = document.getElementById('statusIconHolder');
+
+      if (currentScenario === 'parked') {
+        banner.className = 'status-banner safe';
+        badge.className = 'status-badge safe';
+        badge.innerText = 'Vehicle Resting';
+        heading.innerText = 'Car is parked safely';
+        desc.innerText = 'Ignition is off and battery drain is minimal. All perimeter checks safe.';
+        icon.innerText = '🅿️';
+      } else if (hasHazard) {
+        banner.className = 'status-banner alert';
+        badge.className = 'status-badge alert';
+        badge.innerText = 'Hazard Detected';
+        heading.innerText = 'Safety attention required immediately';
+        desc.innerText = 'A sensor has triggered an active safety alert. Follow on-screen guidance.';
+        icon.innerText = '🚨';
+      } else {
+        banner.className = 'status-banner safe';
+        badge.className = 'status-badge safe';
+        badge.innerText = 'All Clear';
+        heading.innerText = 'All systems safe & healthy';
+        desc.innerText = 'Every safety sensor is watching over your vehicle. No hazards or alarms detected right now.';
+        icon.innerText = '🛡️';
+      }
+
+      // Tiles
+      document.getElementById('pillFlame').className = state.flame === 'DETECTED' ? 'pill bad' : 'pill ok';
+      document.getElementById('pillFlame').innerText = state.flame === 'DETECTED' ? 'FLAME ALERT!' : 'Cool • Clear';
+      document.getElementById('cardFlame').className = 'sensor-card' + (state.flame === 'DETECTED' ? ' danger' : '');
+
+      document.getElementById('pillSmoke').className = state.smoke === 'DETECTED' ? 'pill bad' : 'pill ok';
+      document.getElementById('pillSmoke').innerText = state.smoke === 'DETECTED' ? 'SMOKE ALERT!' : 'Clean Air';
+      document.getElementById('cardSmoke').className = 'sensor-card' + (state.smoke === 'DETECTED' ? ' danger' : '');
+
+      document.getElementById('pillAccident').className = state.accident === 'DETECTED' ? 'pill bad' : 'pill ok';
+      document.getElementById('pillAccident').innerText = state.accident === 'DETECTED' ? 'IMPACT DETECTED!' : 'Smooth Ride';
+      document.getElementById('cardAccident').className = 'sensor-card' + (state.accident === 'DETECTED' ? ' danger' : '');
+
+      // Alcohol & Pulse Meters
+      document.getElementById('alcVal').innerText = state.alcoholRaw.toLocaleString();
+      let alcPct = Math.min((state.alcoholRaw / 4095) * 100, 100);
+      document.getElementById('alcFill').style.width = alcPct + '%';
+      if (state.alcoholRaw > 2500) {
+        document.getElementById('alcPill').className = 'pill bad';
+        document.getElementById('alcPill').innerText = 'Alcohol Alert!';
+        document.getElementById('alcFill').style.background = '#ef4444';
+      } else {
+        document.getElementById('alcPill').className = 'pill ok';
+        document.getElementById('alcPill').innerText = 'Sober & Ready';
+        document.getElementById('alcFill').style.background = 'linear-gradient(90deg, #38bdf8, #22c55e)';
+      }
+
+      document.getElementById('pulseVal').innerText = state.heartRaw.toLocaleString();
+      let pulsePct = Math.min((state.heartRaw / 4095) * 100, 100);
+      document.getElementById('pulseFill').style.width = pulsePct + '%';
+
+      document.getElementById('chipSpeed').innerText = state.speed.toFixed(1) + ' km/h';
+      document.getElementById('coordsText').innerText = state.lat.toFixed(4) + '° N, ' + state.lng.toFixed(4) + '° E';
+
+      drawSparkline('alcSparkline', alcHistory, state.alcoholRaw > 2500 ? '#ef4444' : '#22c55e', 0, 4095);
+      drawSparkline('pulseSparkline', pulseHistory, '#38bdf8', 0, 4095);
+    }
+
+    // Live continuous simulation loop (1 tick per second)
+    setInterval(() => {
+      if (currentScenario === 'normal') {
+        state.alcoholRaw = 1180 + Math.floor(Math.random() * 60);
+        state.heartRaw = 2000 + Math.floor((Math.random() - 0.5) * 120);
+        state.speed = 42 + (Math.random() - 0.5) * 4;
+        state.lat += (Math.random() - 0.5) * 0.0003;
+        state.lng += (Math.random() - 0.5) * 0.0003;
+      } else if (currentScenario === 'parked') {
+        state.speed = 0;
+      }
+
+      alcHistory.shift();
+      alcHistory.push(state.alcoholRaw);
+
+      pulseHistory.shift();
+      pulseHistory.push(state.heartRaw);
+
+      // Map move
+      let newPos = [state.lat, state.lng];
+      vehicleMarker.setLatLng(newPos);
+      trailCoords.push(newPos);
+      if (trailCoords.length > 50) trailCoords.shift();
+      polyline.setLatLngs(trailCoords);
+      map.panTo(newPos, { animate: true });
+
+      render();
+    }, 1000);
+
+    render();
+  </script>
+</body>
+</html>
