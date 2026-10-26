@@ -46,3 +46,7 @@ Thumbs.db
 # Misc
 scratch/
 tmp/
+
+# Secrets & Credentials (ignored by Git)
+*secrets.h
+secrets.h

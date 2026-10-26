@@ -9,8 +9,16 @@
 // ============================================================================
 
 // ---------- Wi-Fi & Backend Configuration ----------
+#if __has_include("secrets.h")
+  #include "secrets.h"
+#endif
+
+#ifndef WIFI_PASSWORD_SECRET
+  #define WIFI_PASSWORD_SECRET "your_hotspot_password_here" // Set your hotspot password locally
+#endif
+
 const char* WIFI_SSID     = "Deena";
-const char* WIFI_PASSWORD = "your_hotspot_password_here"; // Set your hotspot password locally
+const char* WIFI_PASSWORD = WIFI_PASSWORD_SECRET;
 
 // Target Node.js API endpoint on PC
 const char* SERVER_URL    = "http://172.30.20.12:3000/api/telemetry";
