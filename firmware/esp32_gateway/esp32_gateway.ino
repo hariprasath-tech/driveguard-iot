@@ -20,7 +20,7 @@
 // ----------------- CONFIGURATION -----------------
 const char* STA_SSID     = "YOUR_WIFI_SSID";
 const char* STA_PASS     = "YOUR_WIFI_PASSWORD";
-const char* API_URL      = "http://192.168.1.100:3000/api/telemetry";
+const char* API_URL      = "http://10.55.79.12:3000/api/telemetry";
 const char* API_KEY      = "dg_device_key_secret_12345";
 const char* DEVICE_ID    = "CAR-001";
 

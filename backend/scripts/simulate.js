@@ -14,7 +14,7 @@
 const http = require('http');
 
 const API_KEY = process.env.DEVICE_API_KEY || 'dg_device_key_secret_12345';
-const HOST = process.env.API_HOST || 'localhost';
+const HOST = process.env.API_HOST || '10.55.79.12';
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const DEVICE_ID = process.env.DEVICE_ID || 'CAR-001';
 
