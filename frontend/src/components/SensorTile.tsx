@@ -74,8 +74,10 @@ export const SensorTile: React.FC<SensorTileProps> = ({ id, status }) => {
   let StatusIcon = HelpCircle;
   let displayStatus = config.waitingText;
 
-  if (status === 'WAITING' || !status) {
-    displayStatus = config.waitingText;
+  if (status === 'DISCONNECTED' || status === 'WAITING' || !status) {
+    displayStatus = '0 • No Signal';
+    badgeColor = 'bg-slate-800 text-slate-500 border-slate-700';
+    iconColor = 'text-slate-500';
   } else if (id === 'flame' || id === 'smoke' || id === 'accident') {
     if (status === 'DETECTED') {
       badgeColor = 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse';

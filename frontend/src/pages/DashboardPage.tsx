@@ -49,56 +49,56 @@ export const DashboardPage: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             <SensorTile
               id="flame"
-              status={data?.flame || 'WAITING'}
+              status={isOffline || !data ? 'DISCONNECTED' : data.flame}
             />
             <SensorTile
               id="smoke"
-              status={data?.smoke || 'WAITING'}
+              status={isOffline || !data ? 'DISCONNECTED' : data.smoke}
             />
             <SensorTile
               id="accident"
-              status={data?.accident || 'WAITING'}
+              status={isOffline || !data ? 'DISCONNECTED' : data.accident}
             />
             <SensorTile
               id="motion"
-              status={data?.motion || 'WAITING'}
+              status={isOffline || !data ? 'DISCONNECTED' : data.motion}
             />
             <SensorTile
               id="frequency"
-              status={data?.frequency || 'WAITING'}
+              status={isOffline || !data ? 'DISCONNECTED' : data.frequency}
             />
             <SensorTile
               id="gps"
-              status={data?.gps || 'WAITING'}
+              status={isOffline || !data ? 'DISCONNECTED' : data.gps}
             />
           </div>
         </div>
 
         {/* Analog Sensor Meters (Alcohol & Heart) + Live Map */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* MQ-3 Alcohol Card */}
+          {/* MQ-3 Alcohol Card: shows 0 when not connected */}
           <SensorMeterCard
             type="mq3"
-            currentValue={data?.mq3Raw ?? 0}
-            status={data?.mq3Status ?? 'WAITING'}
-            history={history}
+            currentValue={isOffline || !data ? 0 : data.mq3Raw}
+            status={isOffline || !data ? 'DISCONNECTED' : data.mq3Status}
+            history={isOffline || !data ? [] : history}
           />
 
-          {/* Heart Pulse Card */}
+          {/* Heart Pulse Card: shows 0 when not connected */}
           <SensorMeterCard
             type="heart"
-            currentValue={data?.heartRaw ?? 0}
-            status={data?.heartStatus ?? 'WAITING'}
-            history={history}
+            currentValue={isOffline || !data ? 0 : data.heartRaw}
+            status={isOffline || !data ? 'DISCONNECTED' : data.heartStatus}
+            history={isOffline || !data ? [] : history}
           />
 
-          {/* Live Vehicle Map */}
+          {/* Live Vehicle Map: shows 0 km/h when not connected */}
           <LiveMap
-            lat={data?.lat ?? 0}
-            lng={data?.lng ?? 0}
-            speedKmph={data?.speedKmph ?? 0}
-            gpsStatus={data?.gps ?? 'WAITING'}
-            trail={trail}
+            lat={isOffline || !data ? 0 : data.lat}
+            lng={isOffline || !data ? 0 : data.lng}
+            speedKmph={isOffline || !data ? 0 : data.speedKmph}
+            gpsStatus={isOffline || !data ? 'NO FIX' : data.gps}
+            trail={isOffline || !data ? [] : trail}
           />
         </div>
       </main>

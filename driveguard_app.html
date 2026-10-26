@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>DriveGuard - Vehicle Safety Cockpit</title>
-  <meta name="description" content="Mission-critical vehicle safety monitoring. Humanized telemetry, emergency alerts, and live tracking." />
+  <title>DriveGuard - Live Vehicle Safety Cockpit</title>
+  <meta name="description" content="Mission-critical vehicle safety cockpit with live ESP32 telemetry. Zero dummy data." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -40,6 +40,7 @@
       top: 0;
       z-index: 50;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
@@ -63,6 +64,28 @@
     }
     .brand h1 { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
     .brand p { font-size: 11px; color: #94a3b8; font-family: 'JetBrains Mono', monospace; }
+    
+    .server-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #101726;
+      border: 1px solid #1e293b;
+      padding: 4px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono';
+    }
+    .server-input {
+      background: transparent;
+      border: none;
+      color: #38bdf8;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      width: 170px;
+    }
+
     .container {
       max-width: 1280px;
       width: 100%;
@@ -73,34 +96,6 @@
       gap: 20px;
       flex: 1;
     }
-    .sim-bar {
-      background: #101726;
-      border: 1px solid #1e293b;
-      border-radius: 16px;
-      padding: 12px 18px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .sim-title { font-size: 12px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; font-family: 'JetBrains Mono'; }
-    .sim-btns { display: flex; flex-wrap: wrap; gap: 8px; }
-    .sim-btn {
-      background: #1e293b;
-      border: 1px solid #334155;
-      color: #e2e8f0;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .sim-btn:hover { background: #334155; }
-    .sim-btn.active { background: #0284c7; border-color: #38bdf8; color: #fff; }
-    .sim-btn.danger { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
-    .sim-btn.danger:hover { background: #ef4444; color: #fff; }
 
     /* Humanized Status Banner */
     .status-banner {
@@ -121,6 +116,10 @@
       border-color: #ef4444;
       animation: alertGlow 1.2s infinite ease-in-out;
     }
+    .status-banner.offline {
+      background: linear-gradient(90deg, rgba(100, 116, 139, 0.15), rgba(19, 27, 44, 0.9));
+      border-color: rgba(100, 116, 139, 0.4);
+    }
     @keyframes alertGlow {
       0%, 100% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.3); }
       50% { box-shadow: 0 0 45px rgba(239, 68, 68, 0.7); }
@@ -136,6 +135,7 @@
     }
     .status-badge.safe { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.4); }
     .status-badge.alert { background: #ef4444; color: #fff; }
+    .status-badge.offline { background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.4); }
     .status-heading { font-size: 18px; font-weight: 800; color: #fff; margin-top: 4px; }
     .status-desc { font-size: 13px; color: #cbd5e1; margin-top: 4px; line-height: 1.4; }
 
@@ -189,6 +189,7 @@
     .pill.ok { background: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.3); }
     .pill.bad { background: rgba(239, 68, 68, 0.25); color: #fca5a5; border-color: #ef4444; }
     .pill.blue { background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border-color: rgba(56, 189, 248, 0.3); }
+    .pill.muted { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border-color: rgba(100, 116, 139, 0.3); }
 
     /* Gauges & Map */
     .dashboard-row {
@@ -278,38 +279,30 @@
       </div>
       <div>
         <h1>DriveGuard</h1>
-        <p>Real-Time Vehicle Safety Cockpit</p>
+        <p>Live ESP32 Telemetry Cockpit</p>
       </div>
     </a>
 
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <button id="audioToggleBtn" class="mute-btn" onclick="toggleAudioMute()">🔊 Siren Sound Enabled</button>
-      <span class="pill ok" style="font-size: 11px;">● LIVE CLOUD FEED</span>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <div class="server-bar">
+        <span style="color: #64748b;">Backend:</span>
+        <input id="serverIpInput" class="server-input" value="10.55.79.12:3000" onchange="reconnectBackend()" />
+      </div>
+
+      <button id="audioToggleBtn" class="mute-btn" onclick="toggleAudioMute()">🔊 Siren Enabled</button>
+      <span id="connBadge" class="pill muted" style="font-size: 11px;">DISCONNECTED (0 READINGS)</span>
     </div>
   </header>
 
   <div class="container">
 
-    <!-- Interactive Humanized Simulator Bar -->
-    <div class="sim-bar">
-      <div class="sim-title">⚡ Test Scenarios (Instant Simulator)</div>
-      <div class="sim-btns">
-        <button class="sim-btn active" onclick="setScenario('normal')">✓ All Normal (Safe)</button>
-        <button class="sim-btn danger" onclick="setScenario('flame')">🔥 Test Engine Fire</button>
-        <button class="sim-btn danger" onclick="setScenario('smoke')">💨 Test Cabin Smoke</button>
-        <button class="sim-btn danger" onclick="setScenario('alcohol')">🍷 Test Driver Alcohol</button>
-        <button class="sim-btn danger" onclick="setScenario('accident')">💥 Test Collision Impact</button>
-        <button class="sim-btn" onclick="setScenario('parked')">🅿️ Car Parked / Off</button>
-      </div>
-    </div>
-
     <!-- Humanized Safety Banner -->
-    <div id="statusBanner" class="status-banner safe">
-      <div id="statusIconHolder" style="font-size: 32px;">🛡️</div>
+    <div id="statusBanner" class="status-banner offline">
+      <div id="statusIconHolder" style="font-size: 32px;">🔌</div>
       <div style="flex: 1;">
-        <span id="statusBadge" class="status-badge safe">All Clear</span>
-        <div id="statusHeading" class="status-heading">All systems safe & healthy</div>
-        <div id="statusDesc" class="status-desc">Every safety sensor is watching over your vehicle. No hazards or alarms detected right now.</div>
+        <span id="statusBadge" class="status-badge offline">No Signal</span>
+        <div id="statusHeading" class="status-heading">ESP32 Not Connected</div>
+        <div id="statusDesc" class="status-desc">Awaiting live telemetry packet from ESP32 gateway (10.55.79.89). Showing 0 readings until board transmits.</div>
       </div>
     </div>
 
@@ -318,29 +311,29 @@
       <div class="chip">
         <div style="font-size: 20px;">☁️</div>
         <div>
-          <div class="chip-label">Cloud Sync</div>
-          <div class="chip-val" id="chipSync">Connected Live (1s)</div>
+          <div class="chip-label">Cloud Link</div>
+          <div class="chip-val" id="chipSync">Connecting to 10.55.79.12:3000...</div>
         </div>
       </div>
       <div class="chip">
         <div style="font-size: 20px;">📡</div>
         <div>
-          <div class="chip-label">In-Car Bluetooth</div>
-          <div class="chip-val" id="chipBt">Node 2 Paired (14:08)</div>
+          <div class="chip-label">ESP32 Gateway</div>
+          <div class="chip-val" id="chipBt">No Signal (0)</div>
         </div>
       </div>
       <div class="chip">
         <div style="font-size: 20px;">⏱️</div>
         <div>
-          <div class="chip-label">Car Status</div>
-          <div class="chip-val" id="chipAge">Live right now</div>
+          <div class="chip-label">Packet Age</div>
+          <div class="chip-val" id="chipAge">0s (Offline)</div>
         </div>
       </div>
       <div class="chip">
         <div style="font-size: 20px;">🚗</div>
         <div>
           <div class="chip-label">Driving Speed</div>
-          <div class="chip-val" id="chipSpeed">42.5 km/h</div>
+          <div class="chip-val" id="chipSpeed">0.0 km/h</div>
         </div>
       </div>
     </div>
@@ -350,66 +343,66 @@
       <div class="sensor-card" id="cardFlame">
         <div class="sensor-header">
           <span style="font-size: 22px;">🔥</span>
-          <span class="pill ok" id="pillFlame">Cool • Clear</span>
+          <span class="pill muted" id="pillFlame">0 • No Signal</span>
         </div>
         <div>
           <div class="sensor-title">Engine Fire Guard</div>
-          <div class="sensor-sub">Under-hood temperature</div>
+          <div class="sensor-sub">DO GPIO26</div>
         </div>
       </div>
 
       <div class="sensor-card" id="cardSmoke">
         <div class="sensor-header">
           <span style="font-size: 22px;">💨</span>
-          <span class="pill ok" id="pillSmoke">Clean Air</span>
+          <span class="pill muted" id="pillSmoke">0 • No Signal</span>
         </div>
         <div>
           <div class="sensor-title">Cabin Air & Smoke</div>
-          <div class="sensor-sub">Exhaust & gas detector</div>
+          <div class="sensor-sub">AO GPIO33</div>
         </div>
       </div>
 
       <div class="sensor-card" id="cardAccident">
         <div class="sensor-header">
           <span style="font-size: 22px;">💥</span>
-          <span class="pill ok" id="pillAccident">Smooth Ride</span>
+          <span class="pill muted" id="pillAccident">0 • No Signal</span>
         </div>
         <div>
           <div class="sensor-title">Collision Guard</div>
-          <div class="sensor-sub">Impact accelerometer</div>
+          <div class="sensor-sub">MPU Accelerometer</div>
         </div>
       </div>
 
       <div class="sensor-card" id="cardMotion">
         <div class="sensor-header">
           <span style="font-size: 22px;">👤</span>
-          <span class="pill blue" id="pillMotion">Occupant Inside</span>
+          <span class="pill muted" id="pillMotion">0 • No Signal</span>
         </div>
         <div>
           <div class="sensor-title">Cabin Activity</div>
-          <div class="sensor-sub">PIR passenger sensing</div>
+          <div class="sensor-sub">PIR GPIO27</div>
         </div>
       </div>
 
       <div class="sensor-card" id="cardRadar">
         <div class="sensor-header">
           <span style="font-size: 22px;">📡</span>
-          <span class="pill blue" id="pillRadar">Active Waves</span>
+          <span class="pill muted" id="pillRadar">0 • No Signal</span>
         </div>
         <div>
           <div class="sensor-title">Proximity Radar</div>
-          <div class="sensor-sub">Ultrasonic transducer</div>
+          <div class="sensor-sub">TCT50 GPIO25</div>
         </div>
       </div>
 
       <div class="sensor-card" id="cardGps">
         <div class="sensor-header">
           <span style="font-size: 22px;">📍</span>
-          <span class="pill ok" id="pillGps">Locked</span>
+          <span class="pill muted" id="pillGps">0 • No Fix</span>
         </div>
         <div>
           <div class="sensor-title">Satellite Position</div>
-          <div class="sensor-sub">NEO-6M GPS Module</div>
+          <div class="sensor-sub">NEO-6M GPS</div>
         </div>
       </div>
     </div>
@@ -422,26 +415,26 @@
           <div class="panel-head">
             <div>
               <div class="panel-title">Driver Sobriety & Alertness</div>
-              <div class="panel-subtitle">MQ-3 Breath alcohol vapor check</div>
+              <div class="panel-subtitle">MQ-3 Breath alcohol analog level</div>
             </div>
-            <span class="pill ok" id="alcPill">Sober & Ready</span>
+            <span class="pill muted" id="alcPill">0 • No Signal</span>
           </div>
 
-          <div class="big-value" id="alcVal">1,215</div>
-          <div style="font-size: 11px; color: #94a3b8;">Safe threshold is under 2,500</div>
+          <div class="big-value" id="alcVal">0</div>
+          <div style="font-size: 11px; color: #64748b;" id="alcSub">Raw sensor reading: 0</div>
 
           <div class="meter-bar">
-            <div class="meter-fill" id="alcFill" style="width: 30%; background: linear-gradient(90deg, #38bdf8, #22c55e);"></div>
+            <div class="meter-fill" id="alcFill" style="width: 0%; background: #334155;"></div>
           </div>
           <div class="meter-labels">
             <span>0</span>
-            <span style="color: #f59e0b; font-weight: bold;">Safe limit: 2,500</span>
+            <span style="color: #64748b;">Alert Threshold: 2,500</span>
             <span>4,095</span>
           </div>
         </div>
 
         <div>
-          <div style="font-size: 11px; color: #64748b; font-family: 'JetBrains Mono'; margin-top: 10px;">90s Rolling Alcohol Curve</div>
+          <div style="font-size: 11px; color: #64748b; font-family: 'JetBrains Mono'; margin-top: 10px;">Live Sensor Signal (0 when idle)</div>
           <canvas id="alcSparkline" class="sparkline-canvas"></canvas>
         </div>
       </div>
@@ -452,26 +445,26 @@
           <div class="panel-head">
             <div>
               <div class="panel-title">Driver Heart & Wellness</div>
-              <div class="panel-subtitle">Analog pulse signal monitor</div>
+              <div class="panel-subtitle">Analog pulse sensor reading</div>
             </div>
-            <span class="pill ok" id="pulsePill">Calm & Steady</span>
+            <span class="pill muted" id="pulsePill">0 • No Signal</span>
           </div>
 
-          <div class="big-value" id="pulseVal">2,048</div>
-          <div style="font-size: 11px; color: #94a3b8;">Normal steady range: 1,000–3,000</div>
+          <div class="big-value" id="pulseVal">0</div>
+          <div style="font-size: 11px; color: #64748b;" id="pulseSub">Raw pulse reading: 0</div>
 
           <div class="meter-bar">
-            <div class="meter-fill" id="pulseFill" style="width: 50%; background: linear-gradient(90deg, #38bdf8, #22c55e);"></div>
+            <div class="meter-fill" id="pulseFill" style="width: 0%; background: #334155;"></div>
           </div>
           <div class="meter-labels">
             <span>0</span>
-            <span style="color: #22c55e; font-weight: bold;">Comfort: 1,000–3,000</span>
+            <span style="color: #64748b;">Normal: 1,000–3,000</span>
             <span>4,095</span>
           </div>
         </div>
 
         <div>
-          <div style="font-size: 11px; color: #64748b; font-family: 'JetBrains Mono'; margin-top: 10px;">90s Rolling Pulse Waveform</div>
+          <div style="font-size: 11px; color: #64748b; font-family: 'JetBrains Mono'; margin-top: 10px;">Live Pulse Signal (0 when idle)</div>
           <canvas id="pulseSparkline" class="sparkline-canvas"></canvas>
         </div>
       </div>
@@ -481,15 +474,15 @@
         <div>
           <div class="panel-head">
             <div>
-              <div class="panel-title">Live Vehicle Location</div>
-              <div class="panel-subtitle">Satellite breadcrumb trail</div>
+              <div class="panel-title">Vehicle Location & Trail</div>
+              <div class="panel-subtitle">Real-time coordinates from GPS</div>
             </div>
-            <span class="pill ok">Tracking</span>
+            <span class="pill muted" id="mapStatusPill">0 • No Fix</span>
           </div>
           <div id="map"></div>
         </div>
         <div style="font-size: 11px; color: #94a3b8; font-family: 'JetBrains Mono'; margin-top: 8px;">
-          Coordinates: <strong id="coordsText">12.9716° N, 77.5946° E</strong>
+          Coordinates: <strong id="coordsText">0.0000° N, 0.0000° E (No Fix)</strong>
         </div>
       </div>
     </div>
@@ -505,14 +498,14 @@
       </div>
 
       <h2 id="modalTitle" style="color: #fff; font-size: 22px; font-weight: 800; margin-bottom: 8px;">
-        Engine Fire Detected!
+        Safety Alert!
       </h2>
       <p id="modalAction" style="color: #fca5a5; font-size: 14px; line-height: 1.5; margin-bottom: 18px;">
-        Stay calm. Pull over to a safe area immediately, switch off the ignition, and exit the car.
+        Follow on-screen safety instructions.
       </p>
 
       <div style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: 12px; font-size: 12px; color: #cbd5e1; font-family: 'JetBrains Mono';">
-        Location: <span id="modalCoords">12.9716, 77.5946</span> • Siren active to notify passengers
+        Location: <span id="modalCoords">0, 0</span>
       </div>
 
       <button class="siren-btn" onclick="silenceEmergency()">
@@ -522,42 +515,50 @@
   </div>
 
   <script>
-    // State
+    // State strictly begins at 0 (ZERO dummy/mock data)
+    let state = {
+      connected: false,
+      deviceId: 'No device',
+      flame: 'NO SIGNAL',
+      smoke: 'NO SIGNAL',
+      motion: 'NO SIGNAL',
+      frequency: 'NO SIGNAL',
+      accident: 'NO SIGNAL',
+      gps: 'NO FIX',
+      mq3Raw: 0,
+      heartRaw: 0,
+      speedKmph: 0.0,
+      lat: 0.0,
+      lng: 0.0,
+      uptimeS: 0,
+      lastPacketTs: null
+    };
+
+    let alcHistory = new Array(60).fill(0);
+    let pulseHistory = new Array(60).fill(0);
+    let trailCoords = [];
+
+    // Audio & Socket
     let audioMuted = false;
     let audioCtx = null;
     let sirenOsc = null;
     let sirenLfo = null;
-    let currentScenario = 'normal';
+    let ws = null;
+    let pollInterval = null;
 
-    let state = {
-      flame: 'NOT DETECTED',
-      smoke: 'NOT DETECTED',
-      alcoholRaw: 1200,
-      heartRaw: 2048,
-      motion: 'DETECTED',
-      accident: 'NOT DETECTED',
-      speed: 42.5,
-      lat: 12.971598,
-      lng: 77.594562
-    };
-
-    let alcHistory = new Array(60).fill(1200);
-    let pulseHistory = new Array(60).fill(2048);
-
-    // Map Setup
-    let map = L.map('map', { attributionControl: false }).setView([state.lat, state.lng], 15);
+    // Map Setup centered at default 0,0 until GPS packet arrives
+    let map = L.map('map', { attributionControl: false }).setView([12.9716, 77.5946], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    let vehicleMarker = L.circleMarker([state.lat, state.lng], {
-      color: '#38bdf8',
-      fillColor: '#0284c7',
-      fillOpacity: 0.9,
-      radius: 9,
-      weight: 3
+    let vehicleMarker = L.circleMarker([12.9716, 77.5946], {
+      color: '#64748b',
+      fillColor: '#334155',
+      fillOpacity: 0.8,
+      radius: 8,
+      weight: 2
     }).addTo(map);
 
-    let trailCoords = [[state.lat, state.lng]];
-    let polyline = L.polyline(trailCoords, { color: '#38bdf8', weight: 3, dashArray: '5, 5' }).addTo(map);
+    let polyline = L.polyline([], { color: '#38bdf8', weight: 3, dashArray: '5, 5' }).addTo(map);
 
     // Web Audio Siren Synthesizer
     function startSiren() {
@@ -575,7 +576,7 @@
         sirenOsc.frequency.setValueAtTime(800, audioCtx.currentTime);
 
         sirenLfo.type = 'sine';
-        sirenLfo.frequency.setValueAtTime(1.8, audioCtx.currentTime); // 1.8 Hz sweep
+        sirenLfo.frequency.setValueAtTime(1.8, audioCtx.currentTime);
 
         lfoGain.gain.setValueAtTime(350, audioCtx.currentTime);
         masterGain.gain.setValueAtTime(0.25, audioCtx.currentTime);
@@ -588,7 +589,7 @@
         sirenOsc.start();
         sirenLfo.start();
       } catch (e) {
-        console.warn('Audio requires user click:', e);
+        console.warn('Audio interaction required:', e);
       }
     }
 
@@ -602,54 +603,8 @@
 
     function toggleAudioMute() {
       audioMuted = !audioMuted;
-      document.getElementById('audioToggleBtn').innerText = audioMuted ? '🔇 Siren Muted' : '🔊 Siren Sound Enabled';
+      document.getElementById('audioToggleBtn').innerText = audioMuted ? '🔇 Siren Muted' : '🔊 Siren Enabled';
       if (audioMuted) stopSiren();
-    }
-
-    // Scenarios
-    function setScenario(sc) {
-      currentScenario = sc;
-      document.querySelectorAll('.sim-btn').forEach(b => b.classList.remove('active'));
-      event.target.classList.add('active');
-
-      if (sc === 'normal') {
-        state.flame = 'NOT DETECTED';
-        state.smoke = 'NOT DETECTED';
-        state.accident = 'NOT DETECTED';
-        state.alcoholRaw = 1200;
-        state.speed = 44.0;
-        document.getElementById('emergencyModal').style.display = 'none';
-        stopSiren();
-      } else if (sc === 'flame') {
-        state.flame = 'DETECTED';
-        triggerEmergency('Engine Fire Detected!', 'Under-hood heat detected. Please pull over safely, switch off the car, and step outside.');
-      } else if (sc === 'smoke') {
-        state.smoke = 'DETECTED';
-        triggerEmergency('Cabin Smoke & Fumes Detected!', 'Smoke or exhaust vapor in the cabin. Roll down windows and inspect vehicle.');
-      } else if (sc === 'alcohol') {
-        state.alcoholRaw = 3300;
-        triggerEmergency('Driver Alcohol Impairment Warning!', 'Alcohol vapor detected inside the car. For everyone’s safety, do not operate this vehicle.');
-      } else if (sc === 'accident') {
-        state.accident = 'DETECTED';
-        triggerEmergency('Vehicle Impact / Collision Registered!', 'Impact shock recorded. Please check on passengers. Coordinates pinned for emergency response.');
-      } else if (sc === 'parked') {
-        state.speed = 0;
-        state.flame = 'NOT DETECTED';
-        state.smoke = 'NOT DETECTED';
-        state.accident = 'NOT DETECTED';
-        state.alcoholRaw = 800;
-        document.getElementById('emergencyModal').style.display = 'none';
-        stopSiren();
-      }
-      render();
-    }
-
-    function triggerEmergency(title, action) {
-      document.getElementById('modalTitle').innerText = title;
-      document.getElementById('modalAction').innerText = action;
-      document.getElementById('modalCoords').innerText = state.lat.toFixed(4) + ', ' + state.lng.toFixed(4);
-      document.getElementById('emergencyModal').style.display = 'flex';
-      startSiren();
     }
 
     function silenceEmergency() {
@@ -657,7 +612,7 @@
       stopSiren();
     }
 
-    // Canvas Sparkline renderer
+    // Sparkline Canvas Drawer
     function drawSparkline(canvasId, history, color, min, max) {
       let canvas = document.getElementById(canvasId);
       if (!canvas) return;
@@ -668,11 +623,11 @@
       ctx.clearRect(0, 0, w, h);
       ctx.beginPath();
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2;
 
       for (let i = 0; i < history.length; i++) {
         let x = (i / (history.length - 1)) * w;
-        let valNorm = (history[i] - min) / (max - min);
+        let valNorm = max === min ? 0 : (history[i] - min) / (max - min);
         let y = h - (valNorm * (h - 10) + 5);
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
@@ -680,9 +635,38 @@
       ctx.stroke();
     }
 
-    // Render UI Loop
+    // Reset to 0 when disconnected
+    function resetToZeroReadings() {
+      state.connected = false;
+      state.mq3Raw = 0;
+      state.heartRaw = 0;
+      state.speedKmph = 0.0;
+      state.flame = 'DISCONNECTED';
+      state.smoke = 'DISCONNECTED';
+      state.motion = 'DISCONNECTED';
+      state.frequency = 'DISCONNECTED';
+      state.accident = 'DISCONNECTED';
+      state.gps = 'NO FIX';
+      state.uptimeS = 0;
+      document.getElementById('emergencyModal').style.display = 'none';
+      stopSiren();
+      render();
+    }
+
+    // Render Function
     function render() {
-      let hasHazard = state.flame === 'DETECTED' || state.smoke === 'DETECTED' || state.alcoholRaw > 2500 || state.accident === 'DETECTED';
+      let isConn = state.connected;
+      let hasHazard = isConn && (state.flame === 'DETECTED' || state.smoke === 'DETECTED' || state.mq3Raw > 2500 || state.accident === 'DETECTED');
+
+      // Connection badge in navbar
+      let connBadge = document.getElementById('connBadge');
+      if (isConn) {
+        connBadge.className = 'pill ok';
+        connBadge.innerText = '● ESP32 CONNECTED';
+      } else {
+        connBadge.className = 'pill muted';
+        connBadge.innerText = 'DISCONNECTED (0 READINGS)';
+      }
 
       // Status Banner
       let banner = document.getElementById('statusBanner');
@@ -691,97 +675,281 @@
       let desc = document.getElementById('statusDesc');
       let icon = document.getElementById('statusIconHolder');
 
-      if (currentScenario === 'parked') {
-        banner.className = 'status-banner safe';
-        badge.className = 'status-badge safe';
-        badge.innerText = 'Vehicle Resting';
-        heading.innerText = 'Car is parked safely';
-        desc.innerText = 'Ignition is off and battery drain is minimal. All perimeter checks safe.';
-        icon.innerText = '🅿️';
+      if (!isConn) {
+        banner.className = 'status-banner offline';
+        badge.className = 'status-badge offline';
+        badge.innerText = 'No ESP32 Signal';
+        heading.innerText = 'ESP32 Disconnected — All Readings 0';
+        desc.innerText = 'Waiting for telemetry packet from ESP32 gateway. All sensor readings are reset to 0.';
+        icon.innerText = '🔌';
       } else if (hasHazard) {
         banner.className = 'status-banner alert';
         badge.className = 'status-badge alert';
         badge.innerText = 'Hazard Detected';
         heading.innerText = 'Safety attention required immediately';
-        desc.innerText = 'A sensor has triggered an active safety alert. Follow on-screen guidance.';
+        desc.innerText = 'An active alarm was registered by the ESP32 sensor node.';
         icon.innerText = '🚨';
       } else {
         banner.className = 'status-banner safe';
         badge.className = 'status-badge safe';
         badge.innerText = 'All Clear';
         heading.innerText = 'All systems safe & healthy';
-        desc.innerText = 'Every safety sensor is watching over your vehicle. No hazards or alarms detected right now.';
+        desc.innerText = 'Live telemetry streaming from ESP32. All sensor levels nominal.';
         icon.innerText = '🛡️';
       }
 
-      // Tiles
-      document.getElementById('pillFlame').className = state.flame === 'DETECTED' ? 'pill bad' : 'pill ok';
-      document.getElementById('pillFlame').innerText = state.flame === 'DETECTED' ? 'FLAME ALERT!' : 'Cool • Clear';
-      document.getElementById('cardFlame').className = 'sensor-card' + (state.flame === 'DETECTED' ? ' danger' : '');
+      // Chips
+      document.getElementById('chipBt').innerText = isConn ? (state.deviceId || 'CAR-001') + ' (Live)' : 'No Signal (0)';
+      document.getElementById('chipSpeed').innerText = state.speedKmph.toFixed(1) + ' km/h';
 
-      document.getElementById('pillSmoke').className = state.smoke === 'DETECTED' ? 'pill bad' : 'pill ok';
-      document.getElementById('pillSmoke').innerText = state.smoke === 'DETECTED' ? 'SMOKE ALERT!' : 'Clean Air';
-      document.getElementById('cardSmoke').className = 'sensor-card' + (state.smoke === 'DETECTED' ? ' danger' : '');
-
-      document.getElementById('pillAccident').className = state.accident === 'DETECTED' ? 'pill bad' : 'pill ok';
-      document.getElementById('pillAccident').innerText = state.accident === 'DETECTED' ? 'IMPACT DETECTED!' : 'Smooth Ride';
-      document.getElementById('cardAccident').className = 'sensor-card' + (state.accident === 'DETECTED' ? ' danger' : '');
-
-      // Alcohol & Pulse Meters
-      document.getElementById('alcVal').innerText = state.alcoholRaw.toLocaleString();
-      let alcPct = Math.min((state.alcoholRaw / 4095) * 100, 100);
-      document.getElementById('alcFill').style.width = alcPct + '%';
-      if (state.alcoholRaw > 2500) {
-        document.getElementById('alcPill').className = 'pill bad';
-        document.getElementById('alcPill').innerText = 'Alcohol Alert!';
-        document.getElementById('alcFill').style.background = '#ef4444';
+      if (state.lastPacketTs) {
+        let diffS = Math.floor((Date.now() - state.lastPacketTs) / 1000);
+        document.getElementById('chipAge').innerText = diffS <= 1 ? 'Just now' : diffS + 's ago';
       } else {
-        document.getElementById('alcPill').className = 'pill ok';
-        document.getElementById('alcPill').innerText = 'Sober & Ready';
-        document.getElementById('alcFill').style.background = 'linear-gradient(90deg, #38bdf8, #22c55e)';
+        document.getElementById('chipAge').innerText = '0s (Offline)';
+      }
+
+      // Tiles
+      let flamePill = document.getElementById('pillFlame');
+      let flameCard = document.getElementById('cardFlame');
+      if (!isConn) {
+        flamePill.className = 'pill muted'; flamePill.innerText = '0 • No Signal';
+        flameCard.className = 'sensor-card';
+      } else if (state.flame === 'DETECTED') {
+        flamePill.className = 'pill bad'; flamePill.innerText = 'FLAME ALERT!';
+        flameCard.className = 'sensor-card danger';
+      } else {
+        flamePill.className = 'pill ok'; flamePill.innerText = 'Cool • Clear';
+        flameCard.className = 'sensor-card';
+      }
+
+      let smokePill = document.getElementById('pillSmoke');
+      let smokeCard = document.getElementById('cardSmoke');
+      if (!isConn) {
+        smokePill.className = 'pill muted'; smokePill.innerText = '0 • No Signal';
+        smokeCard.className = 'sensor-card';
+      } else if (state.smoke === 'DETECTED') {
+        smokePill.className = 'pill bad'; smokePill.innerText = 'SMOKE ALERT!';
+        smokeCard.className = 'sensor-card danger';
+      } else {
+        smokePill.className = 'pill ok'; smokePill.innerText = 'Clean Air';
+        smokeCard.className = 'sensor-card';
+      }
+
+      let accPill = document.getElementById('pillAccident');
+      let accCard = document.getElementById('cardAccident');
+      if (!isConn) {
+        accPill.className = 'pill muted'; accPill.innerText = '0 • No Signal';
+        accCard.className = 'sensor-card';
+      } else if (state.accident === 'DETECTED') {
+        accPill.className = 'pill bad'; accPill.innerText = 'IMPACT DETECTED!';
+        accCard.className = 'sensor-card danger';
+      } else {
+        accPill.className = 'pill ok'; accPill.innerText = 'Smooth Ride';
+        accCard.className = 'sensor-card';
+      }
+
+      let motionPill = document.getElementById('pillMotion');
+      if (!isConn) {
+        motionPill.className = 'pill muted'; motionPill.innerText = '0 • No Signal';
+      } else if (state.motion === 'DETECTED') {
+        motionPill.className = 'pill blue'; motionPill.innerText = 'Occupant Inside';
+      } else {
+        motionPill.className = 'pill ok'; motionPill.innerText = 'Cabin Quiet';
+      }
+
+      let radarPill = document.getElementById('pillRadar');
+      radarPill.className = isConn ? 'pill blue' : 'pill muted';
+      radarPill.innerText = isConn ? state.frequency : '0 • No Signal';
+
+      let gpsPill = document.getElementById('pillGps');
+      gpsPill.className = (isConn && state.gps === 'FIXED') ? 'pill ok' : 'pill muted';
+      gpsPill.innerText = (isConn && state.gps === 'FIXED') ? 'Locked' : '0 • No Fix';
+
+      // Analog Meters
+      document.getElementById('alcVal').innerText = state.mq3Raw.toLocaleString();
+      let alcPct = isConn ? Math.min((state.mq3Raw / 4095) * 100, 100) : 0;
+      let alcFill = document.getElementById('alcFill');
+      alcFill.style.width = alcPct + '%';
+
+      let alcPill = document.getElementById('alcPill');
+      if (!isConn) {
+        alcPill.className = 'pill muted'; alcPill.innerText = '0 • No Signal';
+        alcFill.style.background = '#334155';
+      } else if (state.mq3Raw > 2500) {
+        alcPill.className = 'pill bad'; alcPill.innerText = 'Alcohol Alert!';
+        alcFill.style.background = '#ef4444';
+      } else {
+        alcPill.className = 'pill ok'; alcPill.innerText = 'Sober & Ready';
+        alcFill.style.background = 'linear-gradient(90deg, #38bdf8, #22c55e)';
       }
 
       document.getElementById('pulseVal').innerText = state.heartRaw.toLocaleString();
-      let pulsePct = Math.min((state.heartRaw / 4095) * 100, 100);
-      document.getElementById('pulseFill').style.width = pulsePct + '%';
+      let pulsePct = isConn ? Math.min((state.heartRaw / 4095) * 100, 100) : 0;
+      let pulseFill = document.getElementById('pulseFill');
+      pulseFill.style.width = pulsePct + '%';
 
-      document.getElementById('chipSpeed').innerText = state.speed.toFixed(1) + ' km/h';
-      document.getElementById('coordsText').innerText = state.lat.toFixed(4) + '° N, ' + state.lng.toFixed(4) + '° E';
-
-      drawSparkline('alcSparkline', alcHistory, state.alcoholRaw > 2500 ? '#ef4444' : '#22c55e', 0, 4095);
-      drawSparkline('pulseSparkline', pulseHistory, '#38bdf8', 0, 4095);
-    }
-
-    // Live continuous simulation loop (1 tick per second)
-    setInterval(() => {
-      if (currentScenario === 'normal') {
-        state.alcoholRaw = 1180 + Math.floor(Math.random() * 60);
-        state.heartRaw = 2000 + Math.floor((Math.random() - 0.5) * 120);
-        state.speed = 42 + (Math.random() - 0.5) * 4;
-        state.lat += (Math.random() - 0.5) * 0.0003;
-        state.lng += (Math.random() - 0.5) * 0.0003;
-      } else if (currentScenario === 'parked') {
-        state.speed = 0;
+      let pulsePill = document.getElementById('pulsePill');
+      if (!isConn) {
+        pulsePill.className = 'pill muted'; pulsePill.innerText = '0 • No Signal';
+        pulseFill.style.background = '#334155';
+      } else if (state.heartRaw > 3000 || (state.heartRaw > 0 && state.heartRaw < 1000)) {
+        pulsePill.className = 'pill bad'; pulsePill.innerText = 'Abnormal Pulse';
+        pulseFill.style.background = '#ef4444';
+      } else {
+        pulsePill.className = 'pill ok'; pulsePill.innerText = 'Calm & Steady';
+        pulseFill.style.background = 'linear-gradient(90deg, #38bdf8, #22c55e)';
       }
 
+      // Map Coordinates
+      if (isConn && (state.lat !== 0 || state.lng !== 0)) {
+        document.getElementById('coordsText').innerText = state.lat.toFixed(5) + '° N, ' + state.lng.toFixed(5) + '° E';
+        document.getElementById('mapStatusPill').className = 'pill ok';
+        document.getElementById('mapStatusPill').innerText = 'Live GPS Fix';
+      } else {
+        document.getElementById('coordsText').innerText = '0.0000° N, 0.0000° E (No Fix)';
+        document.getElementById('mapStatusPill').className = 'pill muted';
+        document.getElementById('mapStatusPill').innerText = '0 • No Fix';
+      }
+
+      // Draw sparklines
+      drawSparkline('alcSparkline', alcHistory, state.mq3Raw > 2500 ? '#ef4444' : (isConn ? '#22c55e' : '#475569'), 0, 4095);
+      drawSparkline('pulseSparkline', pulseHistory, isConn ? '#38bdf8' : '#475569', 0, 4095);
+    }
+
+    // Ingest Real Packet from ESP32 via backend
+    function handleRealPacket(data) {
+      if (!data) return;
+
+      state.connected = true;
+      state.deviceId = data.deviceId || 'CAR-001';
+      state.flame = data.flame || 'NOT DETECTED';
+      state.smoke = data.smoke || 'NOT DETECTED';
+      state.motion = data.motion || 'NOT DETECTED';
+      state.frequency = data.frequency || 'EMITTED';
+      state.accident = data.accident || 'NOT DETECTED';
+      state.gps = data.gps || 'NO FIX';
+      state.mq3Raw = Number(data.mq3Raw) || 0;
+      state.heartRaw = Number(data.heartRaw) || 0;
+      state.speedKmph = Number(data.speedKmph) || 0.0;
+      state.lat = Number(data.lat) || 0.0;
+      state.lng = Number(data.lng) || 0.0;
+      state.uptimeS = Number(data.uptimeS) || 0;
+      state.lastPacketTs = Date.now();
+
+      // Append to sparkline
       alcHistory.shift();
-      alcHistory.push(state.alcoholRaw);
+      alcHistory.push(state.mq3Raw);
 
       pulseHistory.shift();
       pulseHistory.push(state.heartRaw);
 
-      // Map move
-      let newPos = [state.lat, state.lng];
-      vehicleMarker.setLatLng(newPos);
-      trailCoords.push(newPos);
-      if (trailCoords.length > 50) trailCoords.shift();
-      polyline.setLatLngs(trailCoords);
-      map.panTo(newPos, { animate: true });
+      // Update Map if GPS fix is valid
+      if (state.lat !== 0 && state.lng !== 0) {
+        let pos = [state.lat, state.lng];
+        vehicleMarker.setLatLng(pos);
+        vehicleMarker.setStyle({ color: '#38bdf8', fillColor: '#0284c7', radius: 9 });
+        trailCoords.push(pos);
+        if (trailCoords.length > 80) trailCoords.shift();
+        polyline.setLatLngs(trailCoords);
+        map.panTo(pos, { animate: true });
+      }
+
+      // Check critical alerts
+      if (state.flame === 'DETECTED') {
+        showEmergency('Engine Fire Detected!', 'Under-hood heat detected by ESP32. Pull over safely and exit vehicle.');
+      } else if (state.smoke === 'DETECTED') {
+        showEmergency('Cabin Smoke Detected!', 'Smoke sensor triggered. Roll down windows and inspect cabin.');
+      } else if (state.accident === 'DETECTED') {
+        showEmergency('Vehicle Collision Impact!', 'Sudden impact registered by accelerometer. Check passengers.');
+      } else if (state.mq3Raw > 2500) {
+        showEmergency('Alcohol Impairment Alert!', 'Elevated alcohol reading (' + state.mq3Raw + '). Do not operate vehicle.');
+      } else {
+        document.getElementById('emergencyModal').style.display = 'none';
+        stopSiren();
+      }
 
       render();
+    }
+
+    function showEmergency(title, msg) {
+      document.getElementById('modalTitle').innerText = title;
+      document.getElementById('modalAction').innerText = msg;
+      document.getElementById('modalCoords').innerText = state.lat + ', ' + state.lng;
+      document.getElementById('emergencyModal').style.display = 'flex';
+      startSiren();
+    }
+
+    // Connect to Real Backend (REST polling & WebSocket)
+    function reconnectBackend() {
+      let host = document.getElementById('serverIpInput').value.trim();
+      if (!host) host = '10.55.79.12:3000';
+
+      document.getElementById('chipSync').innerText = 'Syncing ' + host + '...';
+
+      // 1. Fetch latest reading via REST
+      fetch('http://' + host + '/api/latest')
+        .then(r => {
+          if (!r.ok) throw new Error('No readings');
+          return r.json();
+        })
+        .then(data => {
+          handleRealPacket(data);
+          document.getElementById('chipSync').innerText = 'Connected: ' + host;
+        })
+        .catch(() => {
+          document.getElementById('chipSync').innerText = 'Backend reachable, waiting for ESP32';
+        });
+
+      // 2. Open WebSocket stream
+      if (ws) {
+        try { ws.close(); } catch(e){}
+      }
+
+      try {
+        ws = new WebSocket('ws://' + host + '/ws');
+        ws.onopen = () => {
+          document.getElementById('chipSync').innerText = 'Live Feed: ' + host;
+        };
+        ws.onmessage = (evt) => {
+          try {
+            let msg = JSON.parse(evt.data);
+            if (msg.type === 'telemetry' && msg.data) {
+              handleRealPacket(msg.data);
+            }
+          } catch(e){}
+        };
+        ws.onerror = () => {
+          document.getElementById('chipSync').innerText = 'No WebSocket on ' + host;
+        };
+        ws.onclose = () => {
+          // Retry in 5s
+          setTimeout(reconnectBackend, 5000);
+        };
+      } catch(e){
+        setTimeout(reconnectBackend, 5000);
+      }
+    }
+
+    // Watchdog checking ESP32 connection age every 1 second:
+    // IF no packet received within 10 seconds -> RESET ALL READINGS TO 0!
+    setInterval(() => {
+      if (state.lastPacketTs) {
+        let ageS = Math.floor((Date.now() - state.lastPacketTs) / 1000);
+        if (ageS >= 10) {
+          // ESP32 is NOT connected / stopped transmitting -> show 0 readings!
+          resetToZeroReadings();
+        } else {
+          render();
+        }
+      } else {
+        resetToZeroReadings();
+      }
     }, 1000);
 
-    render();
+    // Initial load
+    resetToZeroReadings();
+    reconnectBackend();
   </script>
 </body>
 </html>

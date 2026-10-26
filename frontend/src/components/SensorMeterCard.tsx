@@ -38,7 +38,11 @@ export const SensorMeterCard: React.FC<SensorMeterCardProps> = ({
   let StatusIcon = CheckCircle2;
   let chartStroke = '#38bdf8';
 
-  if (isAlcohol) {
+  if (status === 'DISCONNECTED' || status === 'NO SIGNAL' || status === 'WAITING' || !status) {
+    humanStatus = '0 • No Signal';
+    badgeClass = 'bg-slate-800 text-slate-500 border-slate-700';
+    chartStroke = '#475569';
+  } else if (isAlcohol) {
     if (status === 'ALERT') {
       humanStatus = 'Alcohol Alert!';
       badgeClass = 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse';
