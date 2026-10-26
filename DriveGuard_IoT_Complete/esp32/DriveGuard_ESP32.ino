@@ -13,17 +13,26 @@
   #include "secrets.h"
 #endif
 
-#ifndef WIFI_PASSWORD_SECRET
-  #define WIFI_PASSWORD_SECRET "your_hotspot_password_here" // Set your hotspot password locally
+#ifndef WIFI_SSID_SECRET
+  #define WIFI_SSID_SECRET "Deena"
 #endif
 
-const char* WIFI_SSID     = "Deena";
-const char* WIFI_PASSWORD = WIFI_PASSWORD_SECRET;
+#ifndef WIFI_PASSWORD_SECRET
+  #define WIFI_PASSWORD_SECRET "your_hotspot_password_here" // Set in local secrets.h
+#endif
 
-// Target Node.js API endpoint on PC
-const char* SERVER_URL    = "http://172.30.20.12:3000/api/telemetry";
-// Device security authentication key
-const char* DEVICE_KEY    = "dg_device_key_secret_12345";
+#ifndef SERVER_URL_SECRET
+  #define SERVER_URL_SECRET "http://172.30.20.12:3000/api/telemetry"
+#endif
+
+#ifndef DEVICE_KEY_SECRET
+  #define DEVICE_KEY_SECRET "your_device_key_here" // Set in local secrets.h
+#endif
+
+const char* WIFI_SSID     = WIFI_SSID_SECRET;
+const char* WIFI_PASSWORD = WIFI_PASSWORD_SECRET;
+const char* SERVER_URL    = SERVER_URL_SECRET;
+const char* DEVICE_KEY    = DEVICE_KEY_SECRET;
 const char* DEVICE_ID     = "CAR-001";
 
 // ---------- Sensor Pin Mapping (ESP32 DevKit 38/30 Pin) ----------
