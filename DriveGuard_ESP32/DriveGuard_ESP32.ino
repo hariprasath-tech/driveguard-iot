@@ -10,7 +10,7 @@
 
 // ---------- Wi-Fi & Backend Configuration ----------
 const char* WIFI_SSID     = "Deena";
-const char* WIFI_PASSWORD = "12347891"; // Change to your hotspot password if different
+const char* WIFI_PASSWORD = "your_hotspot_password_here"; // Set your hotspot password locally
 
 // Target Node.js API endpoint on PC
 const char* SERVER_URL    = "http://172.30.20.12:3000/api/telemetry";
@@ -37,6 +37,11 @@ const unsigned long POST_INTERVAL_MS = 2000;
 
 unsigned long lastPostMs = 0;
 unsigned long bootMs = 0;
+
+// Wi-Fi Connection Manager variables (prevents "sta is connecting, cannot set config" error)
+const unsigned long WIFI_RETRY_INTERVAL_MS = 15000; // 15-second backoff between reconnect attempts
+unsigned long lastConnectAttemptMs = 0;
+bool wifiConnectedPrevious = false;
 
 // Simulated test flags toggled via Serial Monitor
 bool simulatedFlame    = false;
@@ -99,41 +104,56 @@ void handleSerial() {
   }
 }
 
-void connectWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-
-  Serial.printf("\nConnecting to Mobile Hotspot '%s'...", WIFI_SSID);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-
+// ----------------------------------------------------------------------------
+// ROBUST WI-FI CONNECTION LOGIC
+// Avoids repeated WiFi.begin() spam while ESP32 is already connecting
+// ----------------------------------------------------------------------------
+void ensureWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("==================================================");
-    Serial.println(" [SUCCESS] Wi-Fi Connected to Hotspot!");
-    Serial.print(" ESP32 IP Address : ");
-    Serial.println(WiFi.localIP());
-    Serial.print(" Target Backend   : ");
-    Serial.println(SERVER_URL);
-    Serial.println("==================================================");
-  } else {
-    Serial.println(" [FAILED] Could not connect to Wi-Fi hotspot.");
-    Serial.println(" -> Verify hotspot SSID is exactly 'Deena'");
-    Serial.println(" -> Verify hotspot password");
-    Serial.println(" -> Ensure hotspot band is 2.4 GHz (ESP32 cannot see 5 GHz)");
+    if (!wifiConnectedPrevious) {
+      wifiConnectedPrevious = true;
+      Serial.println("\n==================================================");
+      Serial.println(" [SUCCESS] Wi-Fi Connected to Hotspot!");
+      Serial.print(" ESP32 IP Address : ");
+      Serial.println(WiFi.localIP());
+      Serial.print(" Target Backend   : ");
+      Serial.println(SERVER_URL);
+      Serial.println("==================================================");
+    }
+    return;
+  }
+
+  // Detected connection loss
+  if (wifiConnectedPrevious) {
+    wifiConnectedPrevious = false;
+    Serial.println("\n[WIFI] Connection lost! Waiting before reconnecting...");
+  }
+
+  // Only initiate a new connection attempt after the backoff window
+  if (lastConnectAttemptMs == 0 || millis() - lastConnectAttemptMs >= WIFI_RETRY_INTERVAL_MS) {
+    lastConnectAttemptMs = millis();
+    Serial.printf("\n[WIFI] Connecting to Mobile Hotspot '%s'...\n", WIFI_SSID);
+
+    // Clean disconnect resets ESP-IDF station state to avoid "cannot set config" conflict
+    WiFi.disconnect(true, true);
+    delay(100);
+
+    WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
+    WiFi.setSleep(false); // Disable modem sleep for reliable mobile hotspot link
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   }
 }
 
 void postTelemetry() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Wi-Fi disconnected; attempting reconnection...");
-    connectWiFi();
-    if (WiFi.status() != WL_CONNECTED) return;
+    // Non-blocking skip: do NOT call WiFi.begin() here to prevent driver config conflicts
+    static unsigned long lastNoticeMs = 0;
+    if (millis() - lastNoticeMs > 5000) {
+      lastNoticeMs = millis();
+      Serial.println("[TELEMETRY] Skipping upload: Wi-Fi still connecting...");
+    }
+    return;
   }
 
   // Read actual hardware sensors
@@ -219,11 +239,39 @@ void setup() {
   Serial.println("==================================================");
 
   printHelp();
-  connectWiFi();
+
+  // Initial Wi-Fi connection
+  ensureWiFi();
+
+  // Allow initial connection window without blocking indefinitely
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    wifiConnectedPrevious = true;
+    Serial.println("==================================================");
+    Serial.println(" [SUCCESS] Wi-Fi Connected to Hotspot!");
+    Serial.print(" ESP32 IP Address : ");
+    Serial.println(WiFi.localIP());
+    Serial.print(" Target Backend   : ");
+    Serial.println(SERVER_URL);
+    Serial.println("==================================================");
+  } else {
+    Serial.println(" [STATUS] Connecting in background. No repeated config spam.");
+    Serial.println(" -> Verify hotspot SSID is 'Deena' (2.4 GHz)");
+    Serial.println(" -> Ensure phone hotspot has client isolation turned off");
+  }
 }
 
 void loop() {
   handleSerial();
+
+  // Safe background Wi-Fi connection check (respects backoff timer)
+  ensureWiFi();
 
   if (millis() - lastPostMs >= POST_INTERVAL_MS) {
     lastPostMs = millis();
