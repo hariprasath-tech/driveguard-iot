@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DriveGuard | IoT Monitor</title>
+  <style>
+    :root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#eaf0ff;background:#0b1020}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top right,#17254a,#0b1020 48%);min-height:100vh}
+    header{padding:26px 5vw;border-bottom:1px solid #263252;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+    h1{font-size:clamp(24px,4vw,34px);margin:0}header p{color:#9aa9ca;margin:7px 0 0}
+    .pill{border:1px solid #304064;border-radius:999px;padding:8px 12px;color:#9aa9ca;font-size:13px}
+    main{max-width:1200px;margin:auto;padding:26px 5vw 48px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:15px}
+    .card{background:#121a30;border:1px solid #263252;border-radius:18px;padding:20px;box-shadow:0 12px 35px #0002}
+    .label{font-size:13px;color:#9aa9ca;text-transform:uppercase;letter-spacing:.08em}.value{font-size:28px;font-weight:700;margin:12px 0 5px;overflow-wrap:anywhere}
+    .sub{font-size:13px;color:#9aa9ca}.ok{color:#54e0a0}.alert{color:#ff737d}.unknown{color:#f7ca69}
+    .section{margin-top:22px}.section h2{font-size:18px}.json{white-space:pre-wrap;overflow-wrap:anywhere;background:#080d19;border:1px solid #263252;border-radius:12px;padding:16px;color:#b9c8e8;min-height:90px;font:12px/1.5 Consolas,monospace}
+    button{background:#25385f;color:#fff;border:1px solid #3a527f;padding:9px 13px;border-radius:9px;cursor:pointer}
+    footer{margin-top:18px;color:#7585a8;font-size:12px}
+  </style>
+</head>
+<body>
+<header>
+  <div><h1>DriveGuard <span style="color:#6ea8ff">IoT</span></h1><p>Vehicle telemetry & emergency status monitor</p></div>
+  <span id="connection" class="pill">Connecting to API…</span>
+</header>
+<main>
+  <div class="grid">
+    <div class="card"><div class="label">Device</div><div class="value" id="device">—</div><div class="sub" id="received">Waiting for telemetry</div></div>
+    <div class="card"><div class="label">Flame</div><div class="value unknown" id="flame">—</div><div class="sub">Flame sensor status</div></div>
+    <div class="card"><div class="label">Smoke</div><div class="value unknown" id="smoke">—</div><div class="sub">Smoke sensor status</div></div>
+    <div class="card"><div class="label">Accident</div><div class="value unknown" id="accident">—</div><div class="sub">Impact / accident status</div></div>
+    <div class="card"><div class="label">MQ-3 raw</div><div class="value" id="mq3">—</div><div class="sub" id="mq3status">Alcohol sensor raw reading</div></div>
+    <div class="card"><div class="label">Speed</div><div class="value" id="speed">—</div><div class="sub">km/h</div></div>
+    <div class="card"><div class="label">Heart status</div><div class="value" id="heart">—</div><div class="sub" id="heartRaw">Raw value: —</div></div>
+    <div class="card"><div class="label">Bluetooth</div><div class="value" id="bt">—</div><div class="sub">Phone connection status</div></div>
+  </div>
+  <section class="section card">
+    <h2>Latest telemetry payload</h2>
+    <button id="refresh">Refresh now</button>
+    <div id="payload" class="json" style="margin-top:12px">No telemetry received yet.</div>
+  </section>
+  <footer>Refreshes every 2 seconds. History is stored in server memory and clears when the backend restarts. Demo telemetry is not a certified emergency system.</footer>
+</main>
+<script>
+const el = id => document.getElementById(id);
+function status(id, value, activeText = "ALERT", normalText = "NORMAL") {
+  const node = el(id);
+  const active = value === true || String(value).toUpperCase() === "ALERT" || String(value).toUpperCase() === "DETECTED";
+  node.textContent = value === undefined || value === null ? "—" : (active ? activeText : normalText);
+  node.className = "value " + (active ? "alert" : "ok");
+}
+async function refresh() {
+  try {
+    const response = await fetch("/api/telemetry/latest", {cache:"no-store"});
+    if (!response.ok) throw new Error("API returned " + response.status);
+    const result = await response.json();
+    el("connection").textContent = "API connected";
+    el("connection").style.color = "#54e0a0";
+    const d = result.data;
+    if (!d) { el("payload").textContent = "API is online. Waiting for ESP32 telemetry."; return; }
+    el("device").textContent = d.deviceId ?? "—";
+    el("received").textContent = "Received: " + (d.receivedAt ?? "—");
+    status("flame", d.flame);
+    status("smoke", d.smoke);
+    status("accident", d.accident);
+    el("mq3").textContent = d.mq3Raw ?? "—";
+    el("mq3status").textContent = "Status: " + (d.mq3Status ?? "—");
+    el("speed").textContent = d.speedKmph ?? "—";
+    el("heart").textContent = d.heartStatus ?? "—";
+    el("heart").className = "value " + (String(d.heartStatus).toUpperCase()==="ALERT" ? "alert":"ok");
+    el("heartRaw").textContent = "Raw value: " + (d.heartRaw ?? "—");
+    el("bt").textContent = d.btConnected === true ? "CONNECTED" : d.btConnected === false ? "DISCONNECTED" : "—";
+    el("payload").textContent = JSON.stringify(d, null, 2);
+  } catch (e) {
+    el("connection").textContent = "API unavailable";
+    el("connection").style.color = "#ff737d";
+  }
+}
+el("refresh").addEventListener("click", refresh);
+refresh(); setInterval(refresh, 2000);
+</script>
+</body>
+</html>

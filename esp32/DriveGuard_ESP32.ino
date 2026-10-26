@@ -1,0 +1,231 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+// ============================================================================
+// DRIVEGUARD IOT — ESP32 TELEMETRY CLIENT
+// Network: Mobile Hotspot 'Deena' -> PC Backend at 172.30.20.12:3000
+// ============================================================================
+
+// ---------- Wi-Fi & Backend Configuration ----------
+// Make sure your phone's mobile hotspot name is "Deena"
+const char* WIFI_SSID     = "Deena";
+// Change to your phone hotspot password if different:
+const char* WIFI_PASSWORD = "12347891";
+
+// Target Node.js API endpoint on PC
+const char* SERVER_URL    = "http://172.30.20.12:3000/api/telemetry";
+// Device security authentication key
+const char* DEVICE_KEY    = "dg_device_key_secret_12345";
+const char* DEVICE_ID     = "CAR-001";
+
+// ---------- Sensor Pin Mapping (ESP32 DevKit 38/30 Pin) ----------
+const int MQ3_PIN      = 34;   // Analog Input (ADC1_CH6 - input only, 3.3V safe)
+const int FLAME_PIN    = 27;   // Digital Input (Flame sensor DO)
+const int SMOKE_PIN    = 26;   // Digital Input (MQ-2 / Smoke sensor DO)
+const int ACCIDENT_PIN = 25;   // Digital Input (Vibration / SW-420 / Impact sensor)
+const int MOTION_PIN   = 33;   // Digital Input (PIR / Microwave / Motion; -1 if unused)
+
+// Set to true if sensor DO pulls LOW when triggered (standard for LM393 modules)
+const bool ACTIVE_LOW_FLAME    = true;
+const bool ACTIVE_LOW_SMOKE    = true;
+const bool ACTIVE_LOW_ACCIDENT = true;
+const bool ACTIVE_LOW_MOTION   = true;
+
+// MQ-3 threshold for demonstration alert (ADC range: 0-4095)
+const int MQ3_ALERT_THRESHOLD  = 2500;
+const unsigned long POST_INTERVAL_MS = 2000;
+
+unsigned long lastPostMs = 0;
+unsigned long bootMs = 0;
+
+// Simulated test flags toggled via Serial Monitor
+bool simulatedFlame    = false;
+bool simulatedSmoke    = false;
+bool simulatedAccident = false;
+bool simulatedAlcohol  = false;
+
+bool readTriggered(int pin, bool activeLow) {
+  if (pin < 0) return false;
+  int value = digitalRead(pin);
+  return activeLow ? (value == LOW) : (value == HIGH);
+}
+
+void printHelp() {
+  Serial.println("\n--- DriveGuard Serial Test Commands ---");
+  Serial.println(" [f] -> Toggle Flame Alert");
+  Serial.println(" [s] -> Toggle Smoke Alert");
+  Serial.println(" [a] -> Toggle MQ-3 Alcohol Alert");
+  Serial.println(" [c] -> Toggle Accident / Impact Alert");
+  Serial.println(" [n] -> Clear All Alerts (Reset to Normal)");
+  Serial.println(" [h] -> Print this Help Menu");
+  Serial.println("----------------------------------------\n");
+}
+
+void handleSerial() {
+  while (Serial.available()) {
+    char ch = (char)Serial.read();
+    if (ch == '\r' || ch == '\n' || ch == ' ') continue;
+
+    switch (ch) {
+      case 'f':
+        simulatedFlame = !simulatedFlame;
+        Serial.printf("[TEST] Simulated Flame: %s\n", simulatedFlame ? "ALERT (DETECTED)" : "OFF (NORMAL)");
+        break;
+      case 's':
+        simulatedSmoke = !simulatedSmoke;
+        Serial.printf("[TEST] Simulated Smoke: %s\n", simulatedSmoke ? "ALERT (DETECTED)" : "OFF (NORMAL)");
+        break;
+      case 'a':
+        simulatedAlcohol = !simulatedAlcohol;
+        Serial.printf("[TEST] Simulated Alcohol: %s\n", simulatedAlcohol ? "ALERT (HIGH)" : "OFF (NORMAL)");
+        break;
+      case 'c':
+        simulatedAccident = !simulatedAccident;
+        Serial.printf("[TEST] Simulated Accident: %s\n", simulatedAccident ? "ALERT (COLLISION)" : "OFF (NORMAL)");
+        break;
+      case 'n':
+        simulatedFlame = simulatedSmoke = simulatedAlcohol = simulatedAccident = false;
+        Serial.println("[TEST] All simulated test alerts cleared. Returning to real sensor readings.");
+        break;
+      case 'h':
+        printHelp();
+        break;
+      default:
+        Serial.println("Unknown command. Type 'h' for help.");
+        break;
+    }
+  }
+}
+
+void connectWiFi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+
+  Serial.printf("\nConnecting to Mobile Hotspot '%s'...", WIFI_SSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("==================================================");
+    Serial.println(" [SUCCESS] Wi-Fi Connected!");
+    Serial.print(" ESP32 IP Address : ");
+    Serial.println(WiFi.localIP());
+    Serial.print(" Target Backend   : ");
+    Serial.println(SERVER_URL);
+    Serial.println("==================================================");
+  } else {
+    Serial.println(" [FAILED] Could not connect to Wi-Fi hotspot.");
+    Serial.println(" -> Verify hotspot SSID is 'Deena'");
+    Serial.println(" -> Verify hotspot password");
+    Serial.println(" -> Ensure hotspot band is 2.4 GHz (ESP32 does not support 5 GHz)");
+  }
+}
+
+void postTelemetry() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Wi-Fi disconnected; attempting reconnection...");
+    connectWiFi();
+    if (WiFi.status() != WL_CONNECTED) return;
+  }
+
+  // Read actual hardware sensors
+  int mq3Raw = analogRead(MQ3_PIN);
+  if (simulatedAlcohol) {
+    mq3Raw = 3200; // Inject simulated high alcohol reading
+  }
+
+  bool flame = readTriggered(FLAME_PIN, ACTIVE_LOW_FLAME) || simulatedFlame;
+  bool smoke = readTriggered(SMOKE_PIN, ACTIVE_LOW_SMOKE) || simulatedSmoke;
+  bool accident = readTriggered(ACCIDENT_PIN, ACTIVE_LOW_ACCIDENT) || simulatedAccident;
+  bool motion = readTriggered(MOTION_PIN, ACTIVE_LOW_MOTION);
+  bool alcoholAlert = (mq3Raw >= MQ3_ALERT_THRESHOLD);
+
+  // Build JSON telemetry document
+  StaticJsonDocument<512> doc;
+  doc["deviceId"]    = DEVICE_ID;
+  doc["mq3Raw"]      = mq3Raw;
+  doc["mq3Status"]   = alcoholAlert ? "ALERT" : "NORMAL";
+  doc["heartRaw"]    = 0;
+  doc["heartStatus"] = "NOT_CONNECTED";
+  doc["flame"]       = flame;
+  doc["smoke"]       = smoke;
+  doc["motion"]      = motion;
+  doc["accident"]    = accident;
+  doc["speedKmph"]   = 0;
+  doc["btConnected"] = false;
+  doc["uptimeS"]     = (millis() - bootMs) / 1000;
+
+  String payload;
+  serializeJson(doc, payload);
+
+  WiFiClient client;
+  HTTPClient http;
+  http.setConnectTimeout(3000);
+  http.setTimeout(3000);
+
+  if (!http.begin(client, SERVER_URL)) {
+    Serial.println("[ERROR] Failed to initialize HTTP client. Check SERVER_URL.");
+    return;
+  }
+
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("x-device-key", DEVICE_KEY);
+
+  int httpCode = http.POST(payload);
+
+  Serial.printf("[POST -> %d] Flame: %s | Smoke: %s | MQ3: %d | Impact: %s\n",
+    httpCode,
+    flame ? "ALERT" : "OK",
+    smoke ? "ALERT" : "OK",
+    mq3Raw,
+    accident ? "ALERT" : "OK"
+  );
+
+  if (httpCode < 0) {
+    Serial.printf(" [HTTP ERROR] %s\n", http.errorToString(httpCode).c_str());
+    Serial.println(" -> Check if PC backend is running at http://172.30.20.12:3000");
+    Serial.println(" -> Check Windows Firewall on port 3000");
+  } else if (httpCode == 401) {
+    Serial.println(" [AUTH ERROR] Device key rejected by backend.");
+  }
+
+  http.end();
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  bootMs = millis();
+
+  analogReadResolution(12);
+
+  pinMode(FLAME_PIN, INPUT_PULLUP);
+  pinMode(SMOKE_PIN, INPUT_PULLUP);
+  pinMode(ACCIDENT_PIN, INPUT_PULLUP);
+  if (MOTION_PIN >= 0) pinMode(MOTION_PIN, INPUT_PULLUP);
+
+  Serial.println("\n==================================================");
+  Serial.println("      DRIVEGUARD IOT - ESP32 FIRMWARE            ");
+  Serial.println("==================================================");
+
+  printHelp();
+  connectWiFi();
+}
+
+void loop() {
+  handleSerial();
+
+  if (millis() - lastPostMs >= POST_INTERVAL_MS) {
+    lastPostMs = millis();
+    postTelemetry();
+  }
+
+  delay(20);
+}

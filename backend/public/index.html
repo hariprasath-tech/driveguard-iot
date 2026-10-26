@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DriveGuard IoT | Live Vehicle Cockpit</title>
+  <style>
+    :root {
+      --bg-dark: #070b14;
+      --card-bg: rgba(18, 26, 48, 0.85);
+      --border-color: #202d4a;
+      --text-main: #f1f5f9;
+      --text-muted: #8e9dbf;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --alert-red: #ef4444;
+      --safe-green: #10b981;
+      --warn-amber: #f59e0b;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(ellipse at top center, #152342 0%, var(--bg-dark) 65%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 20px 5vw;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(11, 16, 32, 0.6);
+      backdrop-filter: blur(10px);
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+    .logo-container { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 20px; color: #fff;
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+    }
+    h1 { font-size: clamp(20px, 3vw, 26px); font-weight: 700; letter-spacing: -0.5px; }
+    h1 span { color: var(--accent-cyan); }
+    .subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 15px; border-radius: 9999px; font-size: 13px; font-weight: 600;
+      border: 1px solid var(--border-color); background: rgba(15, 23, 42, 0.9);
+      transition: all 0.3s ease;
+    }
+    .dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .status-live { border-color: rgba(16, 185, 129, 0.5); color: #6ee7b7; }
+    .status-live .dot { background: var(--safe-green); box-shadow: 0 0 10px var(--safe-green); animation: pulse 1.5s infinite; }
+    .status-offline { border-color: rgba(245, 158, 11, 0.4); color: #fcd34d; }
+    .status-offline .dot { background: var(--warn-amber); }
+    .status-error { border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; }
+    .status-error .dot { background: var(--alert-red); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
+
+    main { max-width: 1250px; width: 100%; margin: 0 auto; padding: 24px 5vw 40px; flex: 1; }
+
+    .banner {
+      background: rgba(30, 41, 69, 0.5); border: 1px solid var(--border-color);
+      border-radius: 12px; padding: 12px 18px; margin-bottom: 22px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 10px; font-size: 13px; color: var(--text-muted);
+    }
+    .banner strong { color: var(--text-main); }
+    .code-pill {
+      background: #090e1a; padding: 4px 10px; border-radius: 6px;
+      font-family: Consolas, monospace; border: 1px solid #202d4a; color: var(--accent-cyan);
+    }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card {
+      background: var(--card-bg); border: 1px solid var(--border-color);
+      border-radius: 16px; padding: 20px; transition: transform 0.2s, border-color 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .card:hover { transform: translateY(-2px); border-color: #3b507f; }
+    .card-top { display: flex; justify-content: space-between; align-items: center; }
+    .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; }
+    .value { font-size: 32px; font-weight: 800; margin: 12px 0 6px; letter-spacing: -0.5px; }
+    .sub { font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; }
+
+    .val-safe { color: var(--safe-green); }
+    .val-alert { color: var(--alert-red); text-shadow: 0 0 16px rgba(239, 68, 68, 0.4); animation: shake 0.5s ease; }
+    .val-zero { color: #64748b; }
+
+    .info-section {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 10px;
+    }
+    @media (max-width: 850px) { .info-section { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--card-bg); border: 1px solid var(--border-color);
+      border-radius: 16px; padding: 20px;
+    }
+    .panel h2 { font-size: 16px; margin-bottom: 12px; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+    .json-box {
+      background: #080d19; border: 1px solid var(--border-color);
+      border-radius: 10px; padding: 14px; font-family: Consolas, monospace;
+      font-size: 12px; color: #a5b4fc; max-height: 220px; overflow-y: auto;
+      white-space: pre-wrap; line-height: 1.5;
+    }
+    .commands-list {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 10px;
+    }
+    .cmd-item {
+      background: #0d1424; border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 10px; font-size: 13px;
+    }
+    .cmd-key {
+      display: inline-block; background: #2563eb; color: #fff;
+      padding: 2px 7px; border-radius: 5px; font-weight: 700; font-family: monospace; margin-right: 6px;
+    }
+    button.btn-refresh {
+      background: #1e293b; color: #f1f5f9; border: 1px solid var(--border-color);
+      padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    button.btn-refresh:hover { background: #334155; }
+    footer {
+      border-top: 1px solid var(--border-color); padding: 16px 5vw;
+      text-align: center; font-size: 12px; color: var(--text-muted);
+      background: rgba(11, 16, 32, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-container">
+    <div class="brand-icon">&#128737;</div>
+    <div>
+      <h1>DriveGuard <span>IoT</span></h1>
+      <p class="subtitle">Live Vehicle Telemetry & Incident Cockpit</p>
+    </div>
+  </div>
+  <div id="statusPill" class="status-badge status-offline">
+    <span class="dot"></span>
+    <span id="statusText">Connecting to API…</span>
+  </div>
+</header>
+
+<main>
+  <div class="banner">
+    <div>
+      Hotspot: <strong>Deena</strong> &bull; Server IP: <span class="code-pill">172.30.20.12:3000</span> &bull; Telemetry: <span class="code-pill">/api/telemetry</span>
+    </div>
+    <div id="lastPingText">Last received: Waiting for ESP32…</div>
+  </div>
+
+  <div class="grid">
+    <!-- Flame Sensor -->
+    <div class="card" id="cardFlame">
+      <div class="card-top">
+        <span class="label">Flame Sensor</span>
+        <span id="flameIcon">&#128293;</span>
+      </div>
+      <div class="value val-zero" id="valFlame">0</div>
+      <div class="sub">
+        <span>Status</span>
+        <strong id="subFlame">DISCONNECTED</strong>
+      </div>
+    </div>
+
+    <!-- Smoke Sensor -->
+    <div class="card" id="cardSmoke">
+      <div class="card-top">
+        <span class="label">Smoke Sensor</span>
+        <span>&#128168;</span>
+      </div>
+      <div class="value val-zero" id="valSmoke">0</div>
+      <div class="sub">
+        <span>Status</span>
+        <strong id="subSmoke">DISCONNECTED</strong>
+      </div>
+    </div>
+
+    <!-- Accident / Collision Sensor -->
+    <div class="card" id="cardAccident">
+      <div class="card-top">
+        <span class="label">Accident / Impact</span>
+        <span>&#9888;</span>
+      </div>
+      <div class="value val-zero" id="valAccident">0</div>
+      <div class="sub">
+        <span>Impact Status</span>
+        <strong id="subAccident">DISCONNECTED</strong>
+      </div>
+    </div>
+
+    <!-- Alcohol MQ-3 Sensor -->
+    <div class="card" id="cardMq3">
+      <div class="card-top">
+        <span class="label">MQ-3 Alcohol Sensor</span>
+        <span>&#127866;</span>
+      </div>
+      <div class="value val-zero" id="valMq3">0</div>
+      <div class="sub">
+        <span>Raw ADC Level</span>
+        <strong id="subMq3">0 (OFFLINE)</strong>
+      </div>
+    </div>
+
+    <!-- Vehicle Speed -->
+    <div class="card">
+      <div class="card-top">
+        <span class="label">Speed</span>
+        <span>&#128663;</span>
+      </div>
+      <div class="value val-zero" id="valSpeed">0</div>
+      <div class="sub">
+        <span>Unit</span>
+        <strong>km/h</strong>
+      </div>
+    </div>
+
+    <!-- Driver Heart Rate -->
+    <div class="card">
+      <div class="card-top">
+        <span class="label">Driver Pulse</span>
+        <span>&#10084;</span>
+      </div>
+      <div class="value val-zero" id="valHeart">0</div>
+      <div class="sub">
+        <span>BPM Status</span>
+        <strong id="subHeart">DISCONNECTED</strong>
+      </div>
+    </div>
+
+    <!-- Bluetooth Connection -->
+    <div class="card">
+      <div class="card-top">
+        <span class="label">Bluetooth Sync</span>
+        <span>&#128246;</span>
+      </div>
+      <div class="value val-zero" id="valBt">0</div>
+      <div class="sub">
+        <span>Phone Link</span>
+        <strong id="subBt">DISCONNECTED</strong>
+      </div>
+    </div>
+
+    <!-- Device Telemetry ID -->
+    <div class="card">
+      <div class="card-top">
+        <span class="label">Target Vehicle</span>
+        <span>&#128279;</span>
+      </div>
+      <div class="value val-zero" id="valDevice">OFFLINE</div>
+      <div class="sub">
+        <span>Uptime</span>
+        <strong id="subUptime">0 s</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-section">
+    <!-- Live Raw Telemetry -->
+    <div class="panel">
+      <h2>
+        <span>Latest Payload Received</span>
+        <button class="btn-refresh" id="btnRefresh">Refresh</button>
+      </h2>
+      <div id="jsonPayload" class="json-box">No ESP32 telemetry packet received yet.
+When ESP32 connects to 'Deena' hotspot and posts to http://172.30.20.12:3000/api/telemetry, live sensor readings will appear here automatically.</div>
+    </div>
+
+    <!-- Arduino Serial Commands Guide -->
+    <div class="panel">
+      <h2>ESP32 Serial Test Triggers</h2>
+      <p style="font-size:13px; color:var(--text-muted); line-height:1.4;">
+        Open Arduino Serial Monitor at <strong>115200 baud</strong> while connected to test live alert states:
+      </p>
+      <div class="commands-list">
+        <div class="cmd-item"><span class="cmd-key">f</span> Toggle Flame</div>
+        <div class="cmd-item"><span class="cmd-key">s</span> Toggle Smoke</div>
+        <div class="cmd-item"><span class="cmd-key">a</span> Toggle MQ-3 Alert</div>
+        <div class="cmd-item"><span class="cmd-key">c</span> Toggle Accident</div>
+        <div class="cmd-item"><span class="cmd-key">n</span> Clear All Alerts</div>
+        <div class="cmd-item"><span class="cmd-key">h</span> Command Help</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  DriveGuard IoT Vehicle Safety System &bull; Node API &bull; ESP32 &bull; Hotspot: Deena &bull; Strict Live Sensor / Zero Offline Mode
+</footer>
+
+<script>
+  const el = id => document.getElementById(id);
+
+  function setZeroReadings(statusMsg) {
+    el("statusPill").className = "status-badge status-offline";
+    el("statusText").textContent = statusMsg || "ESP32 DISCONNECTED — 0 READINGS";
+    
+    // Strict requirement: When disconnected, show 0 readings (no dummy/fake values)
+    el("valFlame").textContent = "0";
+    el("valFlame").className = "value val-zero";
+    el("subFlame").textContent = "DISCONNECTED";
+
+    el("valSmoke").textContent = "0";
+    el("valSmoke").className = "value val-zero";
+    el("subSmoke").textContent = "DISCONNECTED";
+
+    el("valAccident").textContent = "0";
+    el("valAccident").className = "value val-zero";
+    el("subAccident").textContent = "DISCONNECTED";
+
+    el("valMq3").textContent = "0";
+    el("valMq3").className = "value val-zero";
+    el("subMq3").textContent = "0 (OFFLINE)";
+
+    el("valSpeed").textContent = "0";
+    el("valSpeed").className = "value val-zero";
+
+    el("valHeart").textContent = "0";
+    el("valHeart").className = "value val-zero";
+    el("subHeart").textContent = "DISCONNECTED";
+
+    el("valBt").textContent = "0";
+    el("valBt").className = "value val-zero";
+    el("subBt").textContent = "DISCONNECTED";
+
+    el("valDevice").textContent = "OFFLINE";
+    el("valDevice").className = "value val-zero";
+    el("subUptime").textContent = "0 s";
+  }
+
+  function setLiveReadings(d) {
+    el("statusPill").className = "status-badge status-live";
+    el("statusText").textContent = "ESP32 LIVE (" + (d.deviceId || "CAR-001") + ")";
+    el("lastPingText").innerHTML = "Last received: <strong>" + new Date(d.receivedAt).toLocaleTimeString() + "</strong>";
+
+    // Flame
+    const isFlame = Boolean(d.flame);
+    el("valFlame").textContent = isFlame ? "ALERT" : "NORMAL";
+    el("valFlame").className = "value " + (isFlame ? "val-alert" : "val-safe");
+    el("subFlame").textContent = isFlame ? "FLAME DETECTED!" : "NO FLAME";
+
+    // Smoke
+    const isSmoke = Boolean(d.smoke);
+    el("valSmoke").textContent = isSmoke ? "ALERT" : "NORMAL";
+    el("valSmoke").className = "value " + (isSmoke ? "val-alert" : "val-safe");
+    el("subSmoke").textContent = isSmoke ? "SMOKE DETECTED!" : "AIR CLEAR";
+
+    // Accident
+    const isAccident = Boolean(d.accident);
+    el("valAccident").textContent = isAccident ? "ALERT" : "NORMAL";
+    el("valAccident").className = "value " + (isAccident ? "val-alert" : "val-safe");
+    el("subAccident").textContent = isAccident ? "IMPACT DETECTED!" : "VEHICLE SAFE";
+
+    // MQ-3
+    const mq3 = Number(d.mq3Raw || 0);
+    const mq3Alert = String(d.mq3Status).toUpperCase() === "ALERT" || mq3 >= 2500;
+    el("valMq3").textContent = mq3;
+    el("valMq3").className = "value " + (mq3Alert ? "val-alert" : "val-safe");
+    el("subMq3").textContent = mq3Alert ? "ALCOHOL ALERT!" : "NORMAL (Clean)";
+
+    // Speed
+    el("valSpeed").textContent = d.speedKmph ?? 0;
+    el("valSpeed").className = "value val-safe";
+
+    // Heart
+    el("valHeart").textContent = d.heartRaw ?? 0;
+    el("valHeart").className = "value val-safe";
+    el("subHeart").textContent = d.heartStatus || "NORMAL";
+
+    // Bluetooth
+    const isBt = d.btConnected === true;
+    el("valBt").textContent = isBt ? "CONNECTED" : "0";
+    el("valBt").className = "value " + (isBt ? "val-safe" : "val-zero");
+    el("subBt").textContent = isBt ? "PHONE LINKED" : "UNPAIRED";
+
+    // Device & Uptime
+    el("valDevice").textContent = d.deviceId || "CAR-001";
+    el("valDevice").className = "value val-safe";
+    el("subUptime").textContent = (d.uptimeS ?? 0) + " s";
+
+    // JSON Payload
+    el("jsonPayload").textContent = JSON.stringify(d, null, 2);
+  }
+
+  async function pollTelemetry() {
+    try {
+      const res = await fetch("/api/telemetry/latest", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const json = await res.json();
+
+      if (json.connected && json.data) {
+        setLiveReadings(json.data);
+      } else {
+        setZeroReadings("ESP32 DISCONNECTED — 0 READINGS");
+        if (json.fallback) {
+          el("jsonPayload").textContent = "ESP32 disconnected. Displaying 0 readings fallback.\n" + JSON.stringify(json.fallback, null, 2);
+        }
+      }
+    } catch (err) {
+      el("statusPill").className = "status-badge status-error";
+      el("statusText").textContent = "API SERVER OFFLINE";
+      setZeroReadings("SERVER OFFLINE — 0 READINGS");
+      el("jsonPayload").textContent = "Cannot connect to Node.js API at http://localhost:3000.\nEnsure 'npm start' is running in the backend folder.";
+    }
+  }
+
+  el("btnRefresh").addEventListener("click", pollTelemetry);
+  pollTelemetry();
+  setInterval(pollTelemetry, 1500);
+</script>
+</body>
+</html>
